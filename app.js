@@ -2,10 +2,9 @@ const state = {
   appTitle: 'Marcador de tenis',
   category: 'Partido de tenis',
   players: ['Jugador 1', 'Jugador 2'],
-  playerPhotos: ['', ''],
   warnings: [0, 0],
   bestOf: 3,
-  finalSetMode: 'normal',
+  finalSetMode: 'super',
   games: [0, 0],
   sets: [[], []],
   points: [0, 0],
@@ -15,16 +14,19 @@ const state = {
   tiebreakPointCount: 0,
   history: [],
   matchOver: false,
-  winnerIndex: null
+  winnerIndex: null,
+  matchStartTime: null,
+  matchDuration: 0,
+  setPaused: false,
+  sideChangeNotice: '',
+  sideChangePaused: false
 };
 
 const pointLabels = ['0', '15', '30', '40'];
 const SUPER_TIEBREAK_TARGET = 10;
 const SET_TIEBREAK_TARGET = 7;
 let pendingPointPlayer = null;
-let pendingPhotoPlayer = null;
-let cameraStream = null;
-let cameraFacingMode = 'user';
+let timerInterval = null;
 const elements = {
   scoreGrid: document.querySelector('#scoreGrid'),
   settingsButton: document.querySelector('#settingsButton'),
@@ -36,16 +38,6 @@ const elements = {
   categoryInput: document.querySelector('#categoryInput'),
   playerOneInput: document.querySelector('#playerOneInput'),
   playerTwoInput: document.querySelector('#playerTwoInput'),
-  playerOnePhotoInput: document.querySelector('#playerOnePhotoInput'),
-  playerTwoPhotoInput: document.querySelector('#playerTwoPhotoInput'),
-  playerOneCameraButton: document.querySelector('#playerOneCameraButton'),
-  playerTwoCameraButton: document.querySelector('#playerTwoCameraButton'),
-  cameraDialog: document.querySelector('#cameraDialog'),
-  cameraPreview: document.querySelector('#cameraPreview'),
-  cameraError: document.querySelector('#cameraError'),
-  takePhotoButton: document.querySelector('#takePhotoButton'),
-  cancelCameraButton: document.querySelector('#cancelCameraButton'),
-  switchCameraButton: document.querySelector('#switchCameraButton'),
   cancelSettingsButton: document.querySelector('#cancelSettingsButton'),
   closeSettingsButton: document.querySelector('#closeSettingsButton'),
   playerOneLabel: document.querySelector('#playerOneLabel'),
@@ -83,6 +75,11 @@ const elements = {
   cancelPointTypeButton: document.querySelector('#cancelPointTypeButton'),
   historyList: document.querySelector('#historyList'),
   matchNote: document.querySelector('#matchNote'),
+  pointAlert: document.querySelector('#pointAlert'),
+  sideChangeAlert: document.querySelector('#sideChangeAlert'),
+  matchTimer: document.querySelector('#matchTimer'),
+  nextSetButton: document.querySelector('#nextSetButton'),
+  resumeGameButton: document.querySelector('#resumeGameButton'),
   undoButton: document.querySelector('#undoButton'),
   resetButton: document.querySelector('#resetButton'),
   winnerPanel: document.querySelector('#winnerPanel'),
@@ -125,14 +122,15 @@ function currentPointScore() {
 }
 
 function recordPoint(playerIndex, eventType = 'point') {
-  if (state.matchOver || !state.tossComplete) return;
+  if (state.matchOver || !state.tossComplete || state.setPaused || state.sideChangePaused) return;
   saveSnapshot(playerIndex, eventType);
+  state.sideChangeNotice = '';
   applyPoint(playerIndex);
   render();
 }
 
 function saveSnapshot(playerIndex = null, eventType = null, warningPlayer = null) {
-  state.history.push(JSON.stringify({ games: state.games, sets: state.sets, points: state.points, serverIndex: state.serverIndex, tossWinnerIndex: state.tossWinnerIndex, tossComplete: state.tossComplete, tiebreakPointCount: state.tiebreakPointCount, warnings: state.warnings, matchOver: state.matchOver, winnerIndex: state.winnerIndex, winner: playerIndex, eventType, warningPlayer }));
+  state.history.push(JSON.stringify({ games: state.games, sets: state.sets, points: state.points, serverIndex: state.serverIndex, tossWinnerIndex: state.tossWinnerIndex, tossComplete: state.tossComplete, tiebreakPointCount: state.tiebreakPointCount, warnings: state.warnings, setPaused: state.setPaused, sideChangePaused: state.sideChangePaused, sideChangeNotice: state.sideChangeNotice, matchOver: state.matchOver, winnerIndex: state.winnerIndex, winner: playerIndex, eventType, warningPlayer }));
 }
 
 function applyPoint(playerIndex) {
@@ -153,9 +151,10 @@ function applyPoint(playerIndex) {
 }
 
 function issueWarning(playerIndex) {
-  if (state.matchOver || !state.tossComplete || state.warnings[playerIndex] >= 3) return;
+  if (state.matchOver || !state.tossComplete || state.setPaused || state.sideChangePaused || state.warnings[playerIndex] >= 3) return;
   const nextWarning = state.warnings[playerIndex] + 1;
   saveSnapshot(nextWarning === 2 ? 1 - playerIndex : null, 'warning', playerIndex);
+  state.sideChangeNotice = '';
   state.warnings[playerIndex] += 1;
   const warningCount = state.warnings[playerIndex];
   if (warningCount === 2) applyPoint(1 - playerIndex);
@@ -165,12 +164,14 @@ function issueWarning(playerIndex) {
 
 function winGame(playerIndex) {
   state.games[playerIndex] += 1;
+  if ((state.games[0] + state.games[1]) % 2 === 1) state.sideChangeNotice = 'Cambio de lado: se completaron un numero impar de juegos.';
   state.points = [0, 0];
   state.serverIndex = 1 - state.serverIndex;
   const opponent = 1 - playerIndex;
   const gamesWon = state.games[playerIndex];
   const canWinSet = gamesWon >= 6 && gamesWon - state.games[opponent] >= 2;
   if (canWinSet) winSet(playerIndex);
+  else if ((state.games[0] + state.games[1]) % 2 === 1) pauseForSideChange();
 }
 
 function winSet(playerIndex) {
@@ -180,6 +181,7 @@ function winSet(playerIndex) {
     finishMatch(playerIndex, `${state.players[playerIndex]} gano el partido.`);
   }
   state.games = [0, 0];
+  if (!state.matchOver) pauseAfterSet();
 }
 
 function finishSetTiebreak(playerIndex) {
@@ -193,6 +195,7 @@ function finishSetTiebreak(playerIndex) {
   state.points = [0, 0];
   state.tiebreakPointCount = 0;
   state.warnings = [0, 0];
+  if (!state.matchOver) pauseAfterSet();
 }
 
 function finishSuperTiebreak(playerIndex) {
@@ -206,11 +209,18 @@ function finishSuperTiebreak(playerIndex) {
 
 function updateTiebreakServer() {
   state.tiebreakPointCount += 1;
+  if (state.tiebreakPointCount % 6 === 0) {
+    state.sideChangeNotice = 'Cambio de lado: se completaron 6 puntos de tiebreak.';
+    pauseForSideChange();
+  }
   if (state.tiebreakPointCount === 1 || state.tiebreakPointCount % 2 === 1) state.serverIndex = 1 - state.serverIndex;
 }
 
 function finishMatch(playerIndex, message) {
+  commitMatchDuration();
+  stopMatchTimer();
   state.matchOver = true;
+  state.sideChangePaused = false;
   state.winnerIndex = playerIndex;
   elements.matchNote.textContent = message;
 }
@@ -221,10 +231,14 @@ function undo() {
   const restored = JSON.parse(previous);
   Object.assign(state, restored);
   state.warnings = restored.warnings || [0, 0];
+  state.sideChangePaused = restored.sideChangePaused || false;
+  if (state.setPaused || state.matchOver) stopMatchTimer();
+  else if (state.tossComplete) startMatchTimer();
   render();
 }
 
 function reset(openToss = true) {
+  stopMatchTimer();
   state.games = [0, 0];
   state.sets = [[], []];
   state.points = [0, 0];
@@ -235,6 +249,11 @@ function reset(openToss = true) {
   state.history = [];
   state.matchOver = false;
   state.winnerIndex = null;
+  state.matchStartTime = null;
+  state.matchDuration = 0;
+  state.setPaused = false;
+  state.sideChangeNotice = '';
+  state.sideChangePaused = false;
   render();
   if (openToss) prepareTossDialog();
 }
@@ -285,11 +304,13 @@ function render() {
   const score = currentPointScore();
   elements.appTitle.textContent = state.appTitle;
   elements.matchCategory.textContent = state.category;
+  elements.matchTimer.textContent = formatDuration(state.matchDuration);
+  renderPointAlert();
+  elements.sideChangeAlert.textContent = state.sideChangeNotice;
+  elements.sideChangeAlert.hidden = !state.sideChangeNotice;
   document.title = state.appTitle;
   elements.playerOneLabel.textContent = state.players[0];
   elements.playerTwoLabel.textContent = state.players[1];
-  renderPlayerPhoto(0);
-  renderPlayerPhoto(1);
   elements.pointOneButton.querySelector('.point-label').textContent = state.players[0];
   elements.pointTwoButton.querySelector('.point-label').textContent = state.players[1];
   elements.warningOneLabel.textContent = state.players[0];
@@ -313,14 +334,18 @@ function render() {
   elements.pointContext.textContent = isFinalSuperTiebreak() ? 'Supertiebreak' : isSetTiebreak() ? 'Tiebreak' : `Juego ${state.games[0] + state.games[1] + 1}`;
   elements.pointCount.textContent = `${state.history.length} ${state.history.length === 1 ? 'punto' : 'puntos'}`;
   elements.undoButton.disabled = state.history.length === 0;
-  elements.pointOneButton.disabled = state.matchOver || !state.tossComplete;
-  elements.pointTwoButton.disabled = state.matchOver || !state.tossComplete;
+  const pointEntryDisabled = state.matchOver || !state.tossComplete || state.setPaused || state.sideChangePaused;
+  elements.pointOneButton.disabled = pointEntryDisabled;
+  elements.pointTwoButton.disabled = pointEntryDisabled;
   const servingPlayer = state.serverIndex === null ? null : state.players[state.serverIndex];
   elements.aceAction.textContent = servingPlayer ? `Ace de ${servingPlayer} +` : 'Disponible al iniciar';
-  elements.aceButton.disabled = state.matchOver || !state.tossComplete;
-  elements.doubleFaultButton.disabled = state.matchOver || !state.tossComplete;
-  elements.warningOneButton.disabled = state.matchOver || !state.tossComplete || state.warnings[0] >= 3;
-  elements.warningTwoButton.disabled = state.matchOver || !state.tossComplete || state.warnings[1] >= 3;
+  elements.aceButton.disabled = pointEntryDisabled;
+  elements.doubleFaultButton.disabled = pointEntryDisabled;
+  elements.warningOneButton.disabled = pointEntryDisabled || state.warnings[0] >= 3;
+  elements.warningTwoButton.disabled = pointEntryDisabled || state.warnings[1] >= 3;
+  elements.nextSetButton.hidden = !state.setPaused || state.matchOver;
+  elements.nextSetButton.textContent = `Iniciar ${state.sets[0].length + state.sets[1].length + 1 === 2 ? 'segundo' : 'siguiente'} set`;
+  elements.resumeGameButton.hidden = !state.sideChangePaused || state.setPaused || state.matchOver;
   elements.playerOneRow.classList.toggle('serving-player', state.serverIndex === 0);
   elements.playerTwoRow.classList.toggle('serving-player', state.serverIndex === 1);
   elements.winnerPanel.hidden = !state.matchOver;
@@ -328,26 +353,103 @@ function render() {
     elements.winnerName.textContent = state.players[state.winnerIndex];
     elements.winnerSummary.textContent = `Victoria para ${state.players[state.winnerIndex]}.`;
   }
-  if (!state.matchOver) elements.matchNote.textContent = isFinalSuperTiebreak() ? 'Set decisivo: primero en llegar a 10 puntos con 2 de ventaja gana.' : isSetTiebreak() ? 'Tiebreak: primero en llegar a 7 puntos con 2 de ventaja gana el set.' : 'Primer jugador en ganar 6 juegos con 2 de ventaja gana el set.';
+  if (!state.matchOver) elements.matchNote.textContent = state.setPaused ? 'Set terminado. Pulsa iniciar para comenzar el siguiente set.' : isFinalSuperTiebreak() ? 'Set decisivo: primero en llegar a 10 puntos con 2 de ventaja gana.' : isSetTiebreak() ? 'Tiebreak: primero en llegar a 7 puntos con 2 de ventaja gana el set.' : 'Primer jugador en ganar 6 juegos con 2 de ventaja gana el set.';
   renderStats();
   renderHistory();
 }
 
-function renderPlayerPhoto(playerIndex) {
-  const row = playerIndex === 0 ? elements.playerOneRow : elements.playerTwoRow;
-  const photo = row.querySelector('.player-photo-image');
-  const placeholder = row.querySelector('.player-photo-placeholder');
-  if (state.playerPhotos[playerIndex]) {
-    photo.src = state.playerPhotos[playerIndex];
-    photo.hidden = false;
-    placeholder.hidden = true;
-    row.classList.add('has-player-photo');
-  } else {
-    photo.removeAttribute('src');
-    photo.hidden = true;
-    placeholder.hidden = false;
-    row.classList.remove('has-player-photo');
+function canWinCurrentGameOnNextPoint(playerIndex) {
+  return state.points[playerIndex] >= 3 && state.points[playerIndex] > state.points[1 - playerIndex];
+}
+
+function canWinSetOnNextPoint(playerIndex) {
+  const opponent = 1 - playerIndex;
+  if (isFinalSuperTiebreak() || isSetTiebreak()) {
+    const target = isFinalSuperTiebreak() ? SUPER_TIEBREAK_TARGET : SET_TIEBREAK_TARGET;
+    return state.points[playerIndex] >= target - 1 && state.points[playerIndex] > state.points[opponent];
   }
+  return state.games[playerIndex] >= 5 && state.games[playerIndex] - state.games[opponent] >= 1 && canWinCurrentGameOnNextPoint(playerIndex);
+}
+
+function renderPointAlert() {
+  if (state.matchOver || state.setPaused || state.sideChangePaused) {
+    elements.pointAlert.hidden = true;
+    return;
+  }
+  const matchPointPlayers = [];
+  const setPointPlayers = [];
+  for (let playerIndex = 0; playerIndex < 2; playerIndex += 1) {
+    if (!canWinSetOnNextPoint(playerIndex)) continue;
+    if (setsWon(playerIndex) === setsToWin() - 1 || isFinalSuperTiebreak()) matchPointPlayers.push(state.players[playerIndex]);
+    else setPointPlayers.push(state.players[playerIndex]);
+  }
+  const message = matchPointPlayers.length ? `Match point para ${matchPointPlayers.join(' y ')}` : setPointPlayers.length ? `Set point para ${setPointPlayers.join(' y ')}` : '';
+  elements.pointAlert.textContent = message;
+  elements.pointAlert.hidden = !message;
+}
+
+function formatDuration(totalSeconds) {
+  const hours = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
+  const minutes = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
+  const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+  return `${hours}:${minutes}:${seconds}`;
+}
+
+function updateMatchDuration() {
+  if (state.matchStartTime === null || state.matchOver) return;
+  const activeDuration = Math.floor((Date.now() - state.matchStartTime) / 1000);
+  elements.matchTimer.textContent = formatDuration(state.matchDuration + activeDuration);
+}
+
+function startMatchTimer() {
+  if (state.matchStartTime === null) state.matchStartTime = Date.now();
+  stopMatchTimer();
+  timerInterval = setInterval(updateMatchDuration, 1000);
+  render();
+}
+
+function stopMatchTimer() {
+  if (timerInterval !== null) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+}
+
+function pauseAfterSet() {
+  commitMatchDuration();
+  stopMatchTimer();
+  state.setPaused = true;
+  state.sideChangePaused = false;
+}
+
+function pauseForSideChange() {
+  if (state.setPaused || state.matchOver) return;
+  commitMatchDuration();
+  stopMatchTimer();
+  state.sideChangePaused = true;
+}
+
+function commitMatchDuration() {
+  if (state.matchStartTime !== null) {
+    state.matchDuration += Math.floor((Date.now() - state.matchStartTime) / 1000);
+    state.matchStartTime = null;
+  }
+  elements.matchTimer.textContent = formatDuration(state.matchDuration);
+}
+
+function startNextSet() {
+  if (!state.setPaused || state.matchOver) return;
+  state.setPaused = false;
+  state.sideChangeNotice = '';
+  state.sideChangePaused = false;
+  startMatchTimer();
+}
+
+function resumeAfterSideChange() {
+  if (!state.sideChangePaused || state.setPaused || state.matchOver) return;
+  state.sideChangePaused = false;
+  state.sideChangeNotice = '';
+  startMatchTimer();
 }
 
 function renderStats() {
@@ -371,7 +473,7 @@ function renderHistory() {
 }
 
 function preparePointTypeDialog(playerIndex) {
-  if (state.matchOver || !state.tossComplete) return;
+  if (state.matchOver || !state.tossComplete || state.setPaused || state.sideChangePaused) return;
   pendingPointPlayer = playerIndex;
   elements.pointTypeTitle.textContent = `Punto ganado por ${state.players[playerIndex]}`;
   if (!elements.pointTypeDialog.open) elements.pointTypeDialog.showModal();
@@ -379,11 +481,6 @@ function preparePointTypeDialog(playerIndex) {
 
 elements.pointOneButton.addEventListener('click', () => preparePointTypeDialog(0));
 elements.pointTwoButton.addEventListener('click', () => preparePointTypeDialog(1));
-elements.playerOneCameraButton.addEventListener('click', () => openCamera(0));
-elements.playerTwoCameraButton.addEventListener('click', () => openCamera(1));
-elements.takePhotoButton.addEventListener('click', capturePhoto);
-elements.cancelCameraButton.addEventListener('click', closeCamera);
-elements.switchCameraButton.addEventListener('click', switchCamera);
 elements.pointTypeButtons.forEach((button) => button.addEventListener('click', () => {
   if (pendingPointPlayer === null) return;
   recordPoint(pendingPointPlayer, button.dataset.pointType);
@@ -402,6 +499,8 @@ elements.doubleFaultButton.addEventListener('click', () => {
 });
 elements.warningOneButton.addEventListener('click', () => issueWarning(0));
 elements.warningTwoButton.addEventListener('click', () => issueWarning(1));
+elements.nextSetButton.addEventListener('click', startNextSet);
+elements.resumeGameButton.addEventListener('click', resumeAfterSideChange);
 elements.exportStatsButton.addEventListener('click', () => {
   const headers = ['Jugador', 'Puntos ganados', 'Winner', 'Errores forzados', 'Errores no forzados', 'Aces', 'Dobles faltas', 'Juegos', 'Sets', 'Warnings'];
   const rows = matchStats().map((stats) => [stats.player, stats.pointsWon, stats.winners, stats.forcedErrors, stats.unforcedErrors, stats.aces, stats.doubleFaults, stats.games, stats.sets, stats.warnings]);
@@ -431,95 +530,17 @@ elements.drawTossButton.addEventListener('click', () => {
 function completeToss(choice) {
   state.serverIndex = choice === 'serve' ? state.tossWinnerIndex : 1 - state.tossWinnerIndex;
   state.tossComplete = true;
+  startMatchTimer();
   elements.tossDialog.close();
   render();
 }
 elements.chooseServeButton.addEventListener('click', () => completeToss('serve'));
 elements.chooseSideButton.addEventListener('click', () => completeToss('side'));
-function readPhoto(file) {
-  if (!file) return Promise.resolve('');
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.addEventListener('load', () => resolve(reader.result));
-    reader.addEventListener('error', () => resolve(''));
-    reader.readAsDataURL(file);
-  });
-}
-
-async function openCamera(playerIndex) {
-  pendingPhotoPlayer = playerIndex;
-  elements.cameraError.hidden = true;
-  elements.takePhotoButton.disabled = true;
-  if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
-    elements.cameraError.textContent = 'La camara requiere abrir la pagina publicada con HTTPS, no como archivo local.';
-    elements.cameraError.hidden = false;
-    if (!elements.cameraDialog.open) elements.cameraDialog.showModal();
-    return;
-  }
-  try {
-    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: cameraFacingMode }, audio: false });
-    elements.cameraPreview.srcObject = cameraStream;
-    elements.takePhotoButton.disabled = false;
-    if (!elements.cameraDialog.open) elements.cameraDialog.showModal();
-  } catch (error) {
-    const errorMessages = {
-      NotAllowedError: 'Permiso de camara rechazado. Activa la camara para este sitio en los permisos del navegador.',
-      NotFoundError: 'No se encontro una camara disponible en este dispositivo.',
-      NotReadableError: 'La camara esta siendo usada por otra aplicacion.'
-    };
-    elements.cameraError.textContent = errorMessages[error.name] || 'No se pudo acceder a la camara. Revisa el permiso del navegador.';
-    elements.cameraError.hidden = false;
-    if (!elements.cameraDialog.open) elements.cameraDialog.showModal();
-  }
-}
-
-function closeCamera() {
-  cameraStream?.getTracks().forEach((track) => track.stop());
-  cameraStream = null;
-  elements.cameraPreview.srcObject = null;
-  pendingPhotoPlayer = null;
-  elements.cameraDialog.close();
-}
-
-async function switchCamera() {
-  if (pendingPhotoPlayer === null) return;
-  cameraFacingMode = cameraFacingMode === 'user' ? 'environment' : 'user';
-  cameraStream?.getTracks().forEach((track) => track.stop());
-  cameraStream = null;
-  elements.takePhotoButton.disabled = true;
-  try {
-    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: cameraFacingMode }, audio: false });
-    elements.cameraPreview.srcObject = cameraStream;
-    elements.takePhotoButton.disabled = false;
-    elements.switchCameraButton.textContent = cameraFacingMode === 'user' ? 'Camara posterior' : 'Camara frontal';
-  } catch (error) {
-    cameraFacingMode = cameraFacingMode === 'user' ? 'environment' : 'user';
-    elements.cameraError.textContent = 'No se pudo cambiar de camara. Revisa los permisos del navegador.';
-    elements.cameraError.hidden = false;
-  }
-}
-
-function capturePhoto() {
-  if (!cameraStream || pendingPhotoPlayer === null) return;
-  const canvas = document.createElement('canvas');
-  canvas.width = elements.cameraPreview.videoWidth;
-  canvas.height = elements.cameraPreview.videoHeight;
-  canvas.getContext('2d').drawImage(elements.cameraPreview, 0, 0);
-  state.playerPhotos[pendingPhotoPlayer] = canvas.toDataURL('image/jpeg', 0.85);
-  render();
-  closeCamera();
-}
-
-elements.settingsForm.addEventListener('submit', async (event) => {
+elements.settingsForm.addEventListener('submit', (event) => {
   event.preventDefault();
   state.appTitle = elements.appTitleInput.value.trim() || 'Marcador de tenis';
   state.category = elements.categoryInput.value.trim() || 'Partido de tenis';
   state.players = [elements.playerOneInput.value.trim() || 'Jugador 1', elements.playerTwoInput.value.trim() || 'Jugador 2'];
-  const uploadedPhotos = await Promise.all([
-    readPhoto(elements.playerOnePhotoInput.files[0]),
-    readPhoto(elements.playerTwoPhotoInput.files[0])
-  ]);
-  state.playerPhotos = uploadedPhotos.map((photo, playerIndex) => photo || state.playerPhotos[playerIndex]);
   state.bestOf = Number(new FormData(elements.settingsForm).get('matchFormat'));
   state.finalSetMode = new FormData(elements.settingsForm).get('finalSetMode');
   reset(false);

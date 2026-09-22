@@ -24,7 +24,7 @@
     <section class="match-card" aria-label="Marcador actual">
       <div class="score-header">
         <span>Partido en curso</span>
-        <span class="status-dot"><i></i> En vivo</span>
+        <span class="score-header-status"><span class="match-timer" id="matchTimer">00:00:00</span><span class="status-dot"><i></i> En vivo</span></span>
       </div>
       <div class="score-grid" id="scoreGrid">
         <div class="player-cell player-label">
@@ -37,7 +37,7 @@
         <div class="set-heading optional-set">Set 5</div>
         <div class="set-heading current-heading last-column">Juego</div>
 
-        <div class="player-cell player-row" id="playerOneRow"><span class="player-photo-placeholder player-photo" aria-hidden="true"></span><img class="player-photo-image" alt="" hidden><strong id="playerOneLabel">Jugador 1</strong></div>
+        <div class="player-cell player-row" id="playerOneRow"><span class="player-photo-placeholder" aria-hidden="true"></span><strong id="playerOneLabel">Jugador 1</strong></div>
         <div class="set-score" id="oneSetOne">0</div>
         <div class="set-score" id="oneSetTwo">-</div>
         <div class="set-score" id="oneSetThree">-</div>
@@ -45,7 +45,7 @@
         <div class="set-score optional-set" id="oneSetFive">-</div>
         <div class="game-score current-score last-column" id="oneGameScore">0</div>
 
-        <div class="player-cell player-row last-row" id="playerTwoRow"><span class="player-photo-placeholder player-photo" aria-hidden="true"></span><img class="player-photo-image" alt="" hidden><strong id="playerTwoLabel">Jugador 2</strong></div>
+        <div class="player-cell player-row last-row" id="playerTwoRow"><span class="player-photo-placeholder" aria-hidden="true"></span><strong id="playerTwoLabel">Jugador 2</strong></div>
         <div class="set-score last-row" id="twoSetOne">0</div>
         <div class="set-score last-row" id="twoSetTwo">-</div>
         <div class="set-score last-row" id="twoSetThree">-</div>
@@ -53,6 +53,8 @@
         <div class="set-score optional-set last-row" id="twoSetFive">-</div>
         <div class="game-score current-score last-column last-row" id="twoGameScore">0</div>
       </div>
+      <div class="point-alert" id="pointAlert" role="status" aria-live="polite" hidden></div>
+      <div class="side-change-alert" id="sideChangeAlert" role="status" aria-live="polite" hidden></div>
       <p class="match-note" id="matchNote">Primer jugador en ganar 6 juegos con 2 de ventaja gana el set.</p>
     </section>
 
@@ -95,6 +97,8 @@
         <button class="warning-point-button" id="warningOneButton" type="button">Warning a <span id="warningOneLabel">Jugador 1</span> <strong id="warningOneCount">0/3</strong></button>
         <button class="warning-point-button" id="warningTwoButton" type="button">Warning a <span id="warningTwoLabel">Jugador 2</span> <strong id="warningTwoCount">0/3</strong></button>
       </div>
+      <button class="next-set-button" id="nextSetButton" type="button" hidden>Iniciar segundo set</button>
+      <button class="resume-game-button" id="resumeGameButton" type="button" hidden>Reanudar juego</button>
       <p class="keyboard-hint">Tambien puedes usar las teclas <kbd>1</kbd> y <kbd>2</kbd> para registrar puntos.</p>
     </section>
 
@@ -153,20 +157,6 @@
       <label>Categoria del partido <input id="categoryInput" maxlength="40" placeholder="Ej.: Open CDT - Adultos" required></label>
       <label>Jugador 1 <input id="playerOneInput" maxlength="24" required></label>
       <label>Jugador 2 <input id="playerTwoInput" maxlength="24" required></label>
-      <div class="photo-input-group">
-        <span>Foto de Jugador 1</span>
-        <div class="photo-input-actions">
-          <button class="photo-capture-button" id="playerOneCameraButton" type="button">Tomar foto</button>
-          <label class="photo-upload-button">Elegir archivo<input id="playerOnePhotoInput" type="file" accept="image/*"></label>
-        </div>
-      </div>
-      <div class="photo-input-group">
-        <span>Foto de Jugador 2</span>
-        <div class="photo-input-actions">
-          <button class="photo-capture-button" id="playerTwoCameraButton" type="button">Tomar foto</button>
-          <label class="photo-upload-button">Elegir archivo<input id="playerTwoPhotoInput" type="file" accept="image/*"></label>
-        </div>
-      </div>
       <fieldset>
         <legend>Modalidad del partido</legend>
         <label class="choice"><input type="radio" name="matchFormat" value="3" checked> 3 sets <span>Gana quien consiga 2</span></label>
@@ -174,8 +164,8 @@
       </fieldset>
       <fieldset>
         <legend>Ultimo set</legend>
-        <label class="choice"><input type="radio" name="finalSetMode" value="normal" checked> Set normal <span>Primero en ganar 6 juegos</span></label>
-        <label class="choice"><input type="radio" name="finalSetMode" value="super"> Supertiebreak <span>Primero en llegar a 10 puntos</span></label>
+        <label class="choice"><input type="radio" name="finalSetMode" value="normal"> Set normal <span>Primero en ganar 6 juegos</span></label>
+        <label class="choice"><input type="radio" name="finalSetMode" value="super" checked> Supertiebreak <span>Primero en llegar a 10 puntos</span></label>
       </fieldset>
       <div class="dialog-actions">
         <button class="button button-quiet" id="cancelSettingsButton" type="button">Cancelar</button>
@@ -194,18 +184,6 @@
         <button class="point-type-button" data-point-type="unforced-error" type="button"><kbd>3</kbd> Error no forzado</button>
       </div>
       <button class="button button-quiet point-type-cancel" id="cancelPointTypeButton" type="button">Cancelar</button>
-    </div>
-  </dialog>
-  <dialog class="camera-dialog" id="cameraDialog">
-    <div class="camera-content">
-      <p class="eyebrow">FOTO DEL JUGADOR</p>
-      <video id="cameraPreview" autoplay playsinline></video>
-      <p class="camera-error" id="cameraError" hidden>No se pudo acceder a la camara. Revisa el permiso del navegador.</p>
-      <div class="camera-actions">
-        <button class="button button-quiet" id="cancelCameraButton" type="button">Cancelar</button>
-        <button class="button button-outline" id="switchCameraButton" type="button">Camara posterior</button>
-        <button class="button button-primary" id="takePhotoButton" type="button">Capturar foto</button>
-      </div>
     </div>
   </dialog>
   <dialog class="toss-dialog" id="tossDialog">

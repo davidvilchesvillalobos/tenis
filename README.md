@@ -9,8 +9,6 @@ Abre `index.html` directamente en el navegador. No requiere instalacion ni servi
 - Abre `Configuracion` para editar los nombres de ambos jugadores.
 - Al abrir la aplicacion o pulsar `Reiniciar`, la configuracion aparece antes de iniciar el partido.
 - Define el nombre del marcador y la categoria del partido; ambos se muestran en la cabecera.
-- Al iniciar el partido puedes seleccionar una foto para cada jugador; se mostrara junto a su nombre en la tabla.
-- Desde un smartphone puedes usar `Tomar foto` para abrir la camara del dispositivo.
 - Al iniciar, realiza el sorteo: quien gana elige sacar primero o elegir lado.
 - El punto junto al nombre indica quien esta sirviendo y cambia al terminar cada juego.
 - Elige partido al mejor de 3 o de 5 sets.
