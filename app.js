@@ -447,8 +447,8 @@ async function openCamera(playerIndex) {
   pendingPhotoPlayer = playerIndex;
   elements.cameraError.hidden = true;
   elements.takePhotoButton.disabled = true;
-  if (!navigator.mediaDevices?.getUserMedia) {
-    elements.cameraError.textContent = 'La camara requiere abrir la pagina con HTTPS.';
+  if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+    elements.cameraError.textContent = 'La camara requiere abrir la pagina publicada con HTTPS, no como archivo local.';
     elements.cameraError.hidden = false;
     if (!elements.cameraDialog.open) elements.cameraDialog.showModal();
     return;
@@ -459,7 +459,12 @@ async function openCamera(playerIndex) {
     elements.takePhotoButton.disabled = false;
     if (!elements.cameraDialog.open) elements.cameraDialog.showModal();
   } catch (error) {
-    elements.cameraError.textContent = 'No se pudo acceder a la camara. Revisa el permiso del navegador.';
+    const errorMessages = {
+      NotAllowedError: 'Permiso de camara rechazado. Activa la camara para este sitio en los permisos del navegador.',
+      NotFoundError: 'No se encontro una camara disponible en este dispositivo.',
+      NotReadableError: 'La camara esta siendo usada por otra aplicacion.'
+    };
+    elements.cameraError.textContent = errorMessages[error.name] || 'No se pudo acceder a la camara. Revisa el permiso del navegador.';
     elements.cameraError.hidden = false;
     if (!elements.cameraDialog.open) elements.cameraDialog.showModal();
   }
