@@ -16,8 +16,8 @@ Abre `index.html` directamente en el navegador. No requiere instalacion ni servi
 - Pulsa el boton del jugador que gano cada punto.
 - Despues de seleccionar al ganador, clasifica el punto como `Winner`, `Error forzado` o `Error no forzado`.
 - Usa `Ace` cuando el jugador que saca gana directamente el punto y `Doble falta` cuando pierde el saque; ambas acciones asignan el punto automaticamente.
+- El apartado de analisis muestra golpeo, eficiencia de puntos y warnings por jugador.
 - Usa `Deshacer` para corregir el ultimo punto.
-- Consulta la tabla de estadisticas y pulsa `Exportar a Excel` para descargar un archivo CSV compatible con Excel.
 - La tabla incluye `Winner`, errores forzados y errores no forzados por jugador.
 - En la columna `Warnings`, el primero es una advertencia, el segundo otorga el punto al rival y el tercero termina el partido a favor del rival.
 - Usa `Reiniciar` para comenzar un nuevo partido.

@@ -103,15 +103,15 @@ h2 { font-size: 23px; }
 .keyboard-hint { margin: 17px 0 0; color: var(--muted); font-size: 12px; text-align: center; }
 kbd { padding: 2px 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; background: var(--paper); font-size: 11px; }
 .stats-section { margin-top: 20px; padding: 25px 26px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); box-shadow: none; }
-.export-button { white-space: nowrap; }
 .stats-table-wrapper { overflow-x: auto; }
-.stats-table { width: 100%; min-width: 990px; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
+.stats-table { width: 100%; min-width: 520px; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
 .stats-table th, .stats-table td { padding: 12px 10px; border-bottom: 1px solid #edf1ef; text-align: right; }
 .stats-table th:first-child, .stats-table td:first-child { text-align: left; }
 .stats-table thead th { color: var(--muted); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
 .stats-table tbody th { color: var(--green-dark); font-weight: 700; }
 .stats-table tbody tr:last-child th, .stats-table tbody tr:last-child td { border-bottom: 0; }
-.warning-count { display: inline-block; min-width: 28px; margin-right: 6px; color: var(--green-dark); font-weight: 700; }
+.stats-table .stats-group th { padding-top: 18px; color: var(--green); border-bottom: 2px solid var(--mint); background: #fbfcfa; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+.stats-table .stats-group th:not(:first-child) { color: transparent; }
 .history-section { margin-top: 20px; padding: 25px 26px; border-radius: 16px; box-shadow: none; }
 .section-heading { padding-bottom: 15px; border-bottom: 1px solid var(--line); }
 .section-heading > span { color: var(--muted); font-size: 12px; }
@@ -179,7 +179,6 @@ legend { margin-bottom: 5px; color: var(--muted); font-size: 12px; font-weight: 
   .serve-buttons { grid-template-columns: 1fr; }
   .warning-point-buttons { grid-template-columns: 1fr; }
   .section-heading { align-items: flex-start; flex-direction: column; }
-  .export-button { width: 100%; }
   .player-photo-placeholder { width: 40px; height: 40px; flex-basis: 40px; }
   .player-photo-placeholder::before { top: 7px; left: 12px; width: 12px; height: 12px; }
   .player-photo-placeholder::after { right: 7px; bottom: 6px; left: 7px; height: 15px; }

@@ -67,8 +67,8 @@ const elements = {
   twoSetFive: document.querySelector('#twoSetFive'),
   pointContext: document.querySelector('#pointContext'),
   pointCount: document.querySelector('#pointCount'),
+  statsTableHead: document.querySelector('#statsTableHead'),
   statsTableBody: document.querySelector('#statsTableBody'),
-  exportStatsButton: document.querySelector('#exportStatsButton'),
   pointTypeDialog: document.querySelector('#pointTypeDialog'),
   pointTypeTitle: document.querySelector('#pointTypeTitle'),
   pointTypeButtons: document.querySelectorAll('[data-point-type]'),
@@ -280,24 +280,51 @@ function setScoreText(playerIndex, setIndex) {
 }
 
 function matchStats() {
-  const stats = state.players.map(() => ({ pointsWon: 0, winners: 0, forcedErrors: 0, unforcedErrors: 0, aces: 0, doubleFaults: 0 }));
+  const stats = state.players.map(() => ({
+    aces: 0,
+    doubleFaults: 0,
+    winners: 0,
+    forcedErrors: 0,
+    unforcedErrors: 0,
+    pointsWon: 0,
+    servePointsWon: 0,
+    servePointsTotal: 0,
+    returnPointsWon: 0,
+    returnPointsTotal: 0,
+    warnings: 0
+  }));
   state.history.forEach((snapshot) => {
     const point = JSON.parse(snapshot);
+    if (point.eventType === 'warning') {
+      stats[point.warningPlayer].warnings += 1;
+    }
     if (typeof point.winner !== 'number') return;
-    stats[point.winner].pointsWon += 1;
-    if (point.eventType === 'winner') stats[point.winner].winners += 1;
-    if (point.eventType === 'forced-error') stats[1 - point.winner].forcedErrors += 1;
-    if (point.eventType === 'unforced-error') stats[1 - point.winner].unforcedErrors += 1;
-    if (point.eventType === 'ace') stats[point.winner].aces += 1;
-    if (point.eventType === 'double-fault' && point.serverIndex !== null) stats[point.serverIndex].doubleFaults += 1;
+    const winner = point.winner;
+    const server = point.serverIndex;
+    stats[winner].pointsWon += 1;
+    if (point.eventType === 'ace') stats[winner].aces += 1;
+    if (point.eventType === 'double-fault' && server !== null) stats[server].doubleFaults += 1;
+    if (point.eventType === 'winner') stats[winner].winners += 1;
+    if (point.eventType === 'forced-error') stats[1 - winner].forcedErrors += 1;
+    if (point.eventType === 'unforced-error') stats[1 - winner].unforcedErrors += 1;
+    if (server === winner) stats[winner].servePointsWon += 1;
+    if (server !== null && server !== winner) stats[winner].returnPointsWon += 1;
+    if (server !== null) {
+      stats[server].servePointsTotal += 1;
+      stats[1 - server].returnPointsTotal += 1;
+    }
   });
   return stats.map((playerStats, playerIndex) => ({
     ...playerStats,
     player: state.players[playerIndex],
-    games: state.games[playerIndex],
-    sets: setsWon(playerIndex),
-    warnings: state.warnings[playerIndex]
+    servePercentage: percentage(playerStats.servePointsWon, playerStats.servePointsTotal),
+    returnPercentage: percentage(playerStats.returnPointsWon, playerStats.returnPointsTotal),
+    winnerErrorBalance: playerStats.unforcedErrors === 0 ? (playerStats.winners ? 'N/A' : '0.00') : (playerStats.winners / playerStats.unforcedErrors).toFixed(2)
   }));
+}
+
+function percentage(value, total) {
+  return total === 0 ? '0.0%' : `${((value / total) * 100).toFixed(1)}%`;
 }
 
 function render() {
@@ -313,6 +340,7 @@ function render() {
   elements.playerTwoLabel.textContent = state.players[1];
   elements.pointOneButton.querySelector('.point-label').textContent = state.players[0];
   elements.pointTwoButton.querySelector('.point-label').textContent = state.players[1];
+  renderStats();
   elements.warningOneLabel.textContent = state.players[0];
   elements.warningTwoLabel.textContent = state.players[1];
   elements.warningOneCount.textContent = `${state.warnings[0]}/3`;
@@ -354,8 +382,34 @@ function render() {
     elements.winnerSummary.textContent = `Victoria para ${state.players[state.winnerIndex]}.`;
   }
   if (!state.matchOver) elements.matchNote.textContent = state.setPaused ? 'Set terminado. Pulsa iniciar para comenzar el siguiente set.' : isFinalSuperTiebreak() ? 'Set decisivo: primero en llegar a 10 puntos con 2 de ventaja gana.' : isSetTiebreak() ? 'Tiebreak: primero en llegar a 7 puntos con 2 de ventaja gana el set.' : 'Primer jugador en ganar 6 juegos con 2 de ventaja gana el set.';
-  renderStats();
   renderHistory();
+}
+
+function renderStats() {
+  const stats = matchStats();
+  elements.statsTableHead.innerHTML = `<tr><th scope="col">Indicador</th>${stats.map((playerStats) => `<th scope="col">${playerStats.player}</th>`).join('')}</tr>`;
+  const sections = [
+    ['Rendimiento de golpeo', [
+      ['Aces', 'aces'],
+      ['Dobles faltas', 'doubleFaults'],
+      ['Tiros ganadores (Winners)', 'winners'],
+      ['Errores no forzados', 'unforcedErrors'],
+      ['Errores forzados', 'forcedErrors'],
+      ['Balance Winners / Errores no forzados', 'winnerErrorBalance']
+    ]],
+    ['Eficiencia de puntos', [
+      ['Total de puntos ganados', 'pointsWon'],
+      ['Puntos ganados con el servicio', 'servePercentage'],
+      ['Puntos ganados a la devolucion', 'returnPercentage']
+    ]],
+    ['Disciplina y reglas', [
+      ['Warnings / Advertencias', 'warnings']
+    ]]
+  ];
+  elements.statsTableBody.innerHTML = sections.flatMap(([section, rows]) => [
+    `<tr class="stats-group"><th colspan="${stats.length + 1}">${section}</th></tr>`,
+    ...rows.map(([label, key]) => `<tr><th scope="row">${label}</th>${stats.map((playerStats) => `<td>${key === 'warnings' ? `${playerStats[key]}/3` : playerStats[key]}</td>`).join('')}</tr>`)
+  ]).join('');
 }
 
 function canWinCurrentGameOnNextPoint(playerIndex) {
@@ -452,10 +506,6 @@ function resumeAfterSideChange() {
   startMatchTimer();
 }
 
-function renderStats() {
-  elements.statsTableBody.innerHTML = matchStats().map((stats) => `<tr><th scope="row">${stats.player}</th><td>${stats.pointsWon}</td><td>${stats.winners}</td><td>${stats.forcedErrors}</td><td>${stats.unforcedErrors}</td><td>${stats.aces}</td><td>${stats.doubleFaults}</td><td>${stats.games}</td><td>${stats.sets}</td><td><span class="warning-count">${stats.warnings}/3</span></td></tr>`).join('');
-}
-
 function renderHistory() {
   if (state.history.length === 0) {
     elements.historyList.innerHTML = '<li class="empty-history">Los puntos registrados apareceran aqui.</li>';
@@ -501,18 +551,6 @@ elements.warningOneButton.addEventListener('click', () => issueWarning(0));
 elements.warningTwoButton.addEventListener('click', () => issueWarning(1));
 elements.nextSetButton.addEventListener('click', startNextSet);
 elements.resumeGameButton.addEventListener('click', resumeAfterSideChange);
-elements.exportStatsButton.addEventListener('click', () => {
-  const headers = ['Jugador', 'Puntos ganados', 'Winner', 'Errores forzados', 'Errores no forzados', 'Aces', 'Dobles faltas', 'Juegos', 'Sets', 'Warnings'];
-  const rows = matchStats().map((stats) => [stats.player, stats.pointsWon, stats.winners, stats.forcedErrors, stats.unforcedErrors, stats.aces, stats.doubleFaults, stats.games, stats.sets, stats.warnings]);
-  const escapeCell = (value) => `"${String(value).replaceAll('"', '""')}"`;
-  const csv = [headers, ...rows].map((row) => row.map(escapeCell).join(';')).join('\r\n');
-  const fileName = `${state.appTitle.replace(/[^a-z0-9áéíóúñü -]/gi, '').trim() || 'partido'}-estadisticas.csv`;
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8;' }));
-  link.download = fileName;
-  link.click();
-  URL.revokeObjectURL(link.href);
-});
 elements.undoButton.addEventListener('click', undo);
 elements.resetButton.addEventListener('click', () => {
   reset(false);

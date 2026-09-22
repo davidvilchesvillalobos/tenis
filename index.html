@@ -105,27 +105,13 @@
     <section class="stats-section" aria-label="Estadisticas del partido">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">RESUMEN</p>
+          <p class="eyebrow">ANALISIS</p>
           <h2>Estadisticas del partido</h2>
         </div>
-        <button class="button button-outline export-button" id="exportStatsButton" type="button">Exportar a Excel</button>
       </div>
       <div class="stats-table-wrapper">
         <table class="stats-table">
-          <thead>
-            <tr>
-              <th scope="col">Jugador</th>
-              <th scope="col">Puntos ganados</th>
-              <th scope="col">Winner</th>
-              <th scope="col">Errores forzados</th>
-              <th scope="col">Errores no forzados</th>
-              <th scope="col">Aces</th>
-              <th scope="col">Dobles faltas</th>
-              <th scope="col">Juegos</th>
-              <th scope="col">Sets</th>
-              <th scope="col">Warnings</th>
-            </tr>
-          </thead>
+          <thead id="statsTableHead"></thead>
           <tbody id="statsTableBody"></tbody>
         </table>
       </div>
