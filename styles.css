@@ -157,7 +157,7 @@ kbd { padding: 2px 6px; border: 1px solid var(--line); border-bottom-width: 2px;
 .camera-content video { display: block; width: 100%; max-height: 65vh; border-radius: 10px; background: #182126; object-fit: cover; }
 .camera-error { color: #8b3f30; font-size: 13px; }
 .camera-error[hidden] { display: none; }
-.camera-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+.camera-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
 fieldset { display: grid; gap: 9px; padding: 0; border: 0; }
 legend { margin-bottom: 5px; color: var(--muted); font-size: 12px; font-weight: 700; }
 .choice { display: grid; grid-template-columns: 18px 1fr; align-items: center; gap: 8px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; font-weight: 700; }

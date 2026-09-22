@@ -24,6 +24,7 @@ const SET_TIEBREAK_TARGET = 7;
 let pendingPointPlayer = null;
 let pendingPhotoPlayer = null;
 let cameraStream = null;
+let cameraFacingMode = 'user';
 const elements = {
   scoreGrid: document.querySelector('#scoreGrid'),
   settingsButton: document.querySelector('#settingsButton'),
@@ -44,6 +45,7 @@ const elements = {
   cameraError: document.querySelector('#cameraError'),
   takePhotoButton: document.querySelector('#takePhotoButton'),
   cancelCameraButton: document.querySelector('#cancelCameraButton'),
+  switchCameraButton: document.querySelector('#switchCameraButton'),
   cancelSettingsButton: document.querySelector('#cancelSettingsButton'),
   closeSettingsButton: document.querySelector('#closeSettingsButton'),
   playerOneLabel: document.querySelector('#playerOneLabel'),
@@ -381,6 +383,7 @@ elements.playerOneCameraButton.addEventListener('click', () => openCamera(0));
 elements.playerTwoCameraButton.addEventListener('click', () => openCamera(1));
 elements.takePhotoButton.addEventListener('click', capturePhoto);
 elements.cancelCameraButton.addEventListener('click', closeCamera);
+elements.switchCameraButton.addEventListener('click', switchCamera);
 elements.pointTypeButtons.forEach((button) => button.addEventListener('click', () => {
   if (pendingPointPlayer === null) return;
   recordPoint(pendingPointPlayer, button.dataset.pointType);
@@ -454,7 +457,7 @@ async function openCamera(playerIndex) {
     return;
   }
   try {
-    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: cameraFacingMode }, audio: false });
     elements.cameraPreview.srcObject = cameraStream;
     elements.takePhotoButton.disabled = false;
     if (!elements.cameraDialog.open) elements.cameraDialog.showModal();
@@ -476,6 +479,24 @@ function closeCamera() {
   elements.cameraPreview.srcObject = null;
   pendingPhotoPlayer = null;
   elements.cameraDialog.close();
+}
+
+async function switchCamera() {
+  if (pendingPhotoPlayer === null) return;
+  cameraFacingMode = cameraFacingMode === 'user' ? 'environment' : 'user';
+  cameraStream?.getTracks().forEach((track) => track.stop());
+  cameraStream = null;
+  elements.takePhotoButton.disabled = true;
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: cameraFacingMode }, audio: false });
+    elements.cameraPreview.srcObject = cameraStream;
+    elements.takePhotoButton.disabled = false;
+    elements.switchCameraButton.textContent = cameraFacingMode === 'user' ? 'Camara posterior' : 'Camara frontal';
+  } catch (error) {
+    cameraFacingMode = cameraFacingMode === 'user' ? 'environment' : 'user';
+    elements.cameraError.textContent = 'No se pudo cambiar de camara. Revisa los permisos del navegador.';
+    elements.cameraError.hidden = false;
+  }
 }
 
 function capturePhoto() {
