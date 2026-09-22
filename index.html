@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Marcador de tenis</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">CONTROL DE PARTIDO</p>
+        <h1 id="appTitle">Marcador de tenis</h1>
+        <p class="match-category" id="matchCategory">Partido de tenis</p>
+      </div>
+      <div class="top-actions">
+        <button class="button button-outline settings-button" id="settingsButton" type="button" aria-label="Abrir configuración" title="Configuración"><span aria-hidden="true">⚙</span><span class="visually-hidden">Configuración</span></button>
+        <button class="button button-quiet" id="undoButton" type="button" disabled aria-label="Deshacer el ultimo punto">↶ <span>Deshacer</span></button>
+        <button class="button button-outline" id="resetButton" type="button">Reiniciar</button>
+      </div>
+    </header>
+
+    <section class="match-card" aria-label="Marcador actual">
+      <div class="score-header">
+        <span>Partido en curso</span>
+        <span class="status-dot"><i></i> En vivo</span>
+      </div>
+      <div class="score-grid" id="scoreGrid">
+        <div class="player-cell player-label">
+          <span class="player-name">JUGADORES</span>
+        </div>
+        <div class="set-heading">Set 1</div>
+        <div class="set-heading">Set 2</div>
+        <div class="set-heading">Set 3</div>
+        <div class="set-heading optional-set">Set 4</div>
+        <div class="set-heading optional-set">Set 5</div>
+        <div class="set-heading current-heading last-column">Juego</div>
+
+        <div class="player-cell player-row" id="playerOneRow"><span class="player-photo-placeholder player-photo" aria-hidden="true"></span><img class="player-photo-image" alt="" hidden><strong id="playerOneLabel">Jugador 1</strong></div>
+        <div class="set-score" id="oneSetOne">0</div>
+        <div class="set-score" id="oneSetTwo">-</div>
+        <div class="set-score" id="oneSetThree">-</div>
+        <div class="set-score optional-set" id="oneSetFour">-</div>
+        <div class="set-score optional-set" id="oneSetFive">-</div>
+        <div class="game-score current-score last-column" id="oneGameScore">0</div>
+
+        <div class="player-cell player-row last-row" id="playerTwoRow"><span class="player-photo-placeholder player-photo" aria-hidden="true"></span><img class="player-photo-image" alt="" hidden><strong id="playerTwoLabel">Jugador 2</strong></div>
+        <div class="set-score last-row" id="twoSetOne">0</div>
+        <div class="set-score last-row" id="twoSetTwo">-</div>
+        <div class="set-score last-row" id="twoSetThree">-</div>
+        <div class="set-score optional-set last-row" id="twoSetFour">-</div>
+        <div class="set-score optional-set last-row" id="twoSetFive">-</div>
+        <div class="game-score current-score last-column last-row" id="twoGameScore">0</div>
+      </div>
+      <p class="match-note" id="matchNote">Primer jugador en ganar 6 juegos con 2 de ventaja gana el set.</p>
+    </section>
+
+    <section class="winner-panel" id="winnerPanel" hidden aria-label="Resultado final">
+      <div class="winner-tab">RESULTADO FINAL</div>
+      <p class="eyebrow">GANADOR DEL PARTIDO</p>
+      <h2 id="winnerName">-</h2>
+      <p id="winnerSummary">-</p>
+    </section>
+
+    <section class="point-panel" aria-label="Registrar punto">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">SIGUIENTE PUNTO</p>
+          <h2>Quien gano el punto?</h2>
+        </div>
+        <span class="point-context" id="pointContext">Juego 1</span>
+      </div>
+      <div class="point-buttons">
+        <button class="point-button point-one" id="pointOneButton" type="button">
+          <span class="point-label">Jugador 1</span>
+          <span class="point-action">Gano el punto <b>+</b></span>
+        </button>
+        <button class="point-button point-two" id="pointTwoButton" type="button">
+          <span class="point-label">Jugador 2</span>
+          <span class="point-action">Gano el punto <b>+</b></span>
+        </button>
+      </div>
+      <div class="serve-buttons">
+        <button class="serve-button ace-button" id="aceButton" type="button">
+          <span class="serve-label">Ace</span>
+          <span class="serve-action" id="aceAction">Saca el jugador que gana <b>+</b></span>
+        </button>
+        <button class="serve-button double-fault-button" id="doubleFaultButton" type="button">
+          <span class="serve-label">Doble falta</span>
+          <span class="serve-action">Punto para el rival <b>+</b></span>
+        </button>
+      </div>
+      <div class="warning-point-buttons">
+        <button class="warning-point-button" id="warningOneButton" type="button">Warning a <span id="warningOneLabel">Jugador 1</span> <strong id="warningOneCount">0/3</strong></button>
+        <button class="warning-point-button" id="warningTwoButton" type="button">Warning a <span id="warningTwoLabel">Jugador 2</span> <strong id="warningTwoCount">0/3</strong></button>
+      </div>
+      <p class="keyboard-hint">Tambien puedes usar las teclas <kbd>1</kbd> y <kbd>2</kbd> para registrar puntos.</p>
+    </section>
+
+    <section class="stats-section" aria-label="Estadisticas del partido">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">RESUMEN</p>
+          <h2>Estadisticas del partido</h2>
+        </div>
+        <button class="button button-outline export-button" id="exportStatsButton" type="button">Exportar a Excel</button>
+      </div>
+      <div class="stats-table-wrapper">
+        <table class="stats-table">
+          <thead>
+            <tr>
+              <th scope="col">Jugador</th>
+              <th scope="col">Puntos ganados</th>
+              <th scope="col">Winner</th>
+              <th scope="col">Errores forzados</th>
+              <th scope="col">Errores no forzados</th>
+              <th scope="col">Aces</th>
+              <th scope="col">Dobles faltas</th>
+              <th scope="col">Juegos</th>
+              <th scope="col">Sets</th>
+              <th scope="col">Warnings</th>
+            </tr>
+          </thead>
+          <tbody id="statsTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="history-section">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">ACTIVIDAD</p>
+          <h2>Ultimos puntos</h2>
+        </div>
+        <span id="pointCount">0 puntos</span>
+      </div>
+      <ol class="history-list" id="historyList">
+        <li class="empty-history">Los puntos registrados apareceran aqui.</li>
+      </ol>
+    </section>
+  </main>
+  <dialog class="settings-dialog" id="settingsDialog">
+    <form class="settings-form" id="settingsForm" method="dialog">
+      <div class="dialog-heading">
+        <div>
+          <p class="eyebrow">NUEVO PARTIDO</p>
+          <h2>Configuracion</h2>
+        </div>
+        <button class="dialog-close" id="closeSettingsButton" type="button" aria-label="Cerrar configuracion">&times;</button>
+      </div>
+      <label>Nombre del marcador <input id="appTitleInput" maxlength="40" required></label>
+      <label>Categoria del partido <input id="categoryInput" maxlength="40" placeholder="Ej.: Open CDT - Adultos" required></label>
+      <label>Jugador 1 <input id="playerOneInput" maxlength="24" required></label>
+      <label>Jugador 2 <input id="playerTwoInput" maxlength="24" required></label>
+      <div class="photo-input-group">
+        <span>Foto de Jugador 1</span>
+        <div class="photo-input-actions">
+          <label class="photo-capture-button">Tomar foto<input id="playerOneCameraInput" type="file" accept="image/*" capture="user"></label>
+          <label class="photo-upload-button">Elegir archivo<input id="playerOnePhotoInput" type="file" accept="image/*"></label>
+        </div>
+      </div>
+      <div class="photo-input-group">
+        <span>Foto de Jugador 2</span>
+        <div class="photo-input-actions">
+          <label class="photo-capture-button">Tomar foto<input id="playerTwoCameraInput" type="file" accept="image/*" capture="user"></label>
+          <label class="photo-upload-button">Elegir archivo<input id="playerTwoPhotoInput" type="file" accept="image/*"></label>
+        </div>
+      </div>
+      <fieldset>
+        <legend>Modalidad del partido</legend>
+        <label class="choice"><input type="radio" name="matchFormat" value="3" checked> 3 sets <span>Gana quien consiga 2</span></label>
+        <label class="choice"><input type="radio" name="matchFormat" value="5"> 5 sets <span>Gana quien consiga 3</span></label>
+      </fieldset>
+      <fieldset>
+        <legend>Ultimo set</legend>
+        <label class="choice"><input type="radio" name="finalSetMode" value="normal" checked> Set normal <span>Primero en ganar 6 juegos</span></label>
+        <label class="choice"><input type="radio" name="finalSetMode" value="super"> Supertiebreak <span>Primero en llegar a 10 puntos</span></label>
+      </fieldset>
+      <div class="dialog-actions">
+        <button class="button button-quiet" id="cancelSettingsButton" type="button">Cancelar</button>
+        <button class="button button-primary" type="submit">Iniciar partido</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog class="point-type-dialog" id="pointTypeDialog">
+    <div class="point-type-content">
+      <p class="eyebrow">CLASIFICAR PUNTO</p>
+      <h2 id="pointTypeTitle">Punto ganado por Jugador 1</h2>
+      <p class="point-type-description">Selecciona como se definio el punto.</p>
+      <div class="point-type-actions">
+        <button class="point-type-button" data-point-type="winner" type="button"><kbd>1</kbd> Winner</button>
+        <button class="point-type-button" data-point-type="forced-error" type="button"><kbd>2</kbd> Error forzado</button>
+        <button class="point-type-button" data-point-type="unforced-error" type="button"><kbd>3</kbd> Error no forzado</button>
+      </div>
+      <button class="button button-quiet point-type-cancel" id="cancelPointTypeButton" type="button">Cancelar</button>
+    </div>
+  </dialog>
+  <dialog class="toss-dialog" id="tossDialog">
+    <div class="toss-content">
+      <p class="eyebrow">INICIO DEL PARTIDO</p>
+      <h2>Sorteo inicial</h2>
+      <p class="toss-description">El sorteo define quien decide entre sacar primero o elegir lado.</p>
+      <button class="button button-primary toss-draw" id="drawTossButton" type="button">Realizar sorteo</button>
+      <div class="toss-result" id="tossResult" hidden>
+        <p class="toss-winner-label">Gana el sorteo</p>
+        <h3 id="tossWinnerName">-</h3>
+        <p class="toss-question">¿Que eliges?</p>
+        <div class="toss-actions">
+          <button class="button button-outline" id="chooseServeButton" type="button">Sacar primero</button>
+          <button class="button button-outline" id="chooseSideButton" type="button">Elegir lado</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+  <script src="app.js"></script>
+</body>
+</html>
