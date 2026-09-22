@@ -22,6 +22,8 @@ const pointLabels = ['0', '15', '30', '40'];
 const SUPER_TIEBREAK_TARGET = 10;
 const SET_TIEBREAK_TARGET = 7;
 let pendingPointPlayer = null;
+let pendingPhotoPlayer = null;
+let cameraStream = null;
 const elements = {
   scoreGrid: document.querySelector('#scoreGrid'),
   settingsButton: document.querySelector('#settingsButton'),
@@ -35,8 +37,13 @@ const elements = {
   playerTwoInput: document.querySelector('#playerTwoInput'),
   playerOnePhotoInput: document.querySelector('#playerOnePhotoInput'),
   playerTwoPhotoInput: document.querySelector('#playerTwoPhotoInput'),
-  playerOneCameraInput: document.querySelector('#playerOneCameraInput'),
-  playerTwoCameraInput: document.querySelector('#playerTwoCameraInput'),
+  playerOneCameraButton: document.querySelector('#playerOneCameraButton'),
+  playerTwoCameraButton: document.querySelector('#playerTwoCameraButton'),
+  cameraDialog: document.querySelector('#cameraDialog'),
+  cameraPreview: document.querySelector('#cameraPreview'),
+  cameraError: document.querySelector('#cameraError'),
+  takePhotoButton: document.querySelector('#takePhotoButton'),
+  cancelCameraButton: document.querySelector('#cancelCameraButton'),
   cancelSettingsButton: document.querySelector('#cancelSettingsButton'),
   closeSettingsButton: document.querySelector('#closeSettingsButton'),
   playerOneLabel: document.querySelector('#playerOneLabel'),
@@ -370,6 +377,10 @@ function preparePointTypeDialog(playerIndex) {
 
 elements.pointOneButton.addEventListener('click', () => preparePointTypeDialog(0));
 elements.pointTwoButton.addEventListener('click', () => preparePointTypeDialog(1));
+elements.playerOneCameraButton.addEventListener('click', () => openCamera(0));
+elements.playerTwoCameraButton.addEventListener('click', () => openCamera(1));
+elements.takePhotoButton.addEventListener('click', capturePhoto);
+elements.cancelCameraButton.addEventListener('click', closeCamera);
 elements.pointTypeButtons.forEach((button) => button.addEventListener('click', () => {
   if (pendingPointPlayer === null) return;
   recordPoint(pendingPointPlayer, button.dataset.pointType);
@@ -432,15 +443,57 @@ function readPhoto(file) {
   });
 }
 
+async function openCamera(playerIndex) {
+  pendingPhotoPlayer = playerIndex;
+  elements.cameraError.hidden = true;
+  elements.takePhotoButton.disabled = true;
+  if (!navigator.mediaDevices?.getUserMedia) {
+    elements.cameraError.textContent = 'La camara requiere abrir la pagina con HTTPS.';
+    elements.cameraError.hidden = false;
+    if (!elements.cameraDialog.open) elements.cameraDialog.showModal();
+    return;
+  }
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+    elements.cameraPreview.srcObject = cameraStream;
+    elements.takePhotoButton.disabled = false;
+    if (!elements.cameraDialog.open) elements.cameraDialog.showModal();
+  } catch (error) {
+    elements.cameraError.textContent = 'No se pudo acceder a la camara. Revisa el permiso del navegador.';
+    elements.cameraError.hidden = false;
+    if (!elements.cameraDialog.open) elements.cameraDialog.showModal();
+  }
+}
+
+function closeCamera() {
+  cameraStream?.getTracks().forEach((track) => track.stop());
+  cameraStream = null;
+  elements.cameraPreview.srcObject = null;
+  pendingPhotoPlayer = null;
+  elements.cameraDialog.close();
+}
+
+function capturePhoto() {
+  if (!cameraStream || pendingPhotoPlayer === null) return;
+  const canvas = document.createElement('canvas');
+  canvas.width = elements.cameraPreview.videoWidth;
+  canvas.height = elements.cameraPreview.videoHeight;
+  canvas.getContext('2d').drawImage(elements.cameraPreview, 0, 0);
+  state.playerPhotos[pendingPhotoPlayer] = canvas.toDataURL('image/jpeg', 0.85);
+  render();
+  closeCamera();
+}
+
 elements.settingsForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   state.appTitle = elements.appTitleInput.value.trim() || 'Marcador de tenis';
   state.category = elements.categoryInput.value.trim() || 'Partido de tenis';
   state.players = [elements.playerOneInput.value.trim() || 'Jugador 1', elements.playerTwoInput.value.trim() || 'Jugador 2'];
-  state.playerPhotos = await Promise.all([
-    readPhoto(elements.playerOneCameraInput.files[0] || elements.playerOnePhotoInput.files[0]),
-    readPhoto(elements.playerTwoCameraInput.files[0] || elements.playerTwoPhotoInput.files[0])
+  const uploadedPhotos = await Promise.all([
+    readPhoto(elements.playerOnePhotoInput.files[0]),
+    readPhoto(elements.playerTwoPhotoInput.files[0])
   ]);
+  state.playerPhotos = uploadedPhotos.map((photo, playerIndex) => photo || state.playerPhotos[playerIndex]);
   state.bestOf = Number(new FormData(elements.settingsForm).get('matchFormat'));
   state.finalSetMode = new FormData(elements.settingsForm).get('finalSetMode');
   reset(false);

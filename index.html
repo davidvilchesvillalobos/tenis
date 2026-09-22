@@ -156,14 +156,14 @@
       <div class="photo-input-group">
         <span>Foto de Jugador 1</span>
         <div class="photo-input-actions">
-          <label class="photo-capture-button">Tomar foto<input id="playerOneCameraInput" type="file" accept="image/*" capture="user"></label>
+          <button class="photo-capture-button" id="playerOneCameraButton" type="button">Tomar foto</button>
           <label class="photo-upload-button">Elegir archivo<input id="playerOnePhotoInput" type="file" accept="image/*"></label>
         </div>
       </div>
       <div class="photo-input-group">
         <span>Foto de Jugador 2</span>
         <div class="photo-input-actions">
-          <label class="photo-capture-button">Tomar foto<input id="playerTwoCameraInput" type="file" accept="image/*" capture="user"></label>
+          <button class="photo-capture-button" id="playerTwoCameraButton" type="button">Tomar foto</button>
           <label class="photo-upload-button">Elegir archivo<input id="playerTwoPhotoInput" type="file" accept="image/*"></label>
         </div>
       </div>
@@ -194,6 +194,17 @@
         <button class="point-type-button" data-point-type="unforced-error" type="button"><kbd>3</kbd> Error no forzado</button>
       </div>
       <button class="button button-quiet point-type-cancel" id="cancelPointTypeButton" type="button">Cancelar</button>
+    </div>
+  </dialog>
+  <dialog class="camera-dialog" id="cameraDialog">
+    <div class="camera-content">
+      <p class="eyebrow">FOTO DEL JUGADOR</p>
+      <video id="cameraPreview" autoplay playsinline></video>
+      <p class="camera-error" id="cameraError" hidden>No se pudo acceder a la camara. Revisa el permiso del navegador.</p>
+      <div class="camera-actions">
+        <button class="button button-quiet" id="cancelCameraButton" type="button">Cancelar</button>
+        <button class="button button-primary" id="takePhotoButton" type="button">Capturar foto</button>
+      </div>
     </div>
   </dialog>
   <dialog class="toss-dialog" id="tossDialog">
