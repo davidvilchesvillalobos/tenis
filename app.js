@@ -117,7 +117,7 @@ function currentPointScore() {
   if (isFinalSuperTiebreak() || isSetTiebreak()) return [String(state.points[0]), String(state.points[1])];
   if (state.points[0] >= 3 && state.points[1] >= 3) {
     if (state.points[0] === state.points[1]) return 'Deuce';
-    return state.points[0] > state.points[1] ? 'Ventaja' : 'Ventaja';
+    return state.points[0] > state.points[1] ? ['Ventaja', '40'] : ['40', 'Ventaja'];
   }
   return [pointLabels[state.points[0]], pointLabels[state.points[1]]];
 }
