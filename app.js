@@ -223,6 +223,12 @@ function finishMatch(playerIndex, message) {
   state.sideChangePaused = false;
   state.winnerIndex = playerIndex;
   elements.matchNote.textContent = message;
+  setTimeout(exportMatchPdf, 300);
+}
+
+function exportMatchPdf() {
+  if (typeof window.print !== 'function') return;
+  window.print();
 }
 
 function undo() {

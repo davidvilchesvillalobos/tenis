@@ -22,6 +22,7 @@ Abre `index.html` directamente en el navegador. No requiere instalacion ni servi
 - En la columna `Warnings`, el primero es una advertencia, el segundo otorga el punto al rival y el tercero termina el partido a favor del rival.
 - Usa `Reiniciar` para comenzar un nuevo partido.
 - Al finalizar, aparece una pestaña con el nombre del ganador.
+- Al finalizar, se abre el dialogo de impresion para guardar el resumen y las estadisticas como PDF; el apartado de ultimos puntos no se incluye.
 - Tambien puedes usar las teclas `1` y `2`.
 
 Los sets normales se juegan a 6 juegos y, si llegan a 6-6, se resuelven con tiebreak a 7 puntos con diferencia de 2. El ultimo set puede configurarse como set normal o supertiebreak a 10 puntos.

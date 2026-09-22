@@ -183,3 +183,16 @@ legend { margin-bottom: 5px; color: var(--muted); font-size: 12px; font-weight: 
   .player-photo-placeholder::before { top: 7px; left: 12px; width: 12px; height: 12px; }
   .player-photo-placeholder::after { right: 7px; bottom: 6px; left: 7px; height: 15px; }
 }
+
+@media print {
+  @page { margin: 14mm; }
+  body { color: #182126; background: white; }
+  .app-shell { width: 100%; padding: 0; }
+  .top-actions, .point-panel, .history-section, dialog { display: none !important; }
+  .topbar { margin-bottom: 18px; }
+  .match-card, .stats-section, .winner-panel { box-shadow: none; break-inside: avoid; }
+  .stats-section { margin-top: 18px; }
+  .stats-table { min-width: 0; }
+  .stats-table-wrapper { overflow: visible; }
+  .point-alert, .side-change-alert { display: none !important; }
+}
