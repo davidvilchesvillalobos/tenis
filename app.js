@@ -1,32 +1,50 @@
-const state = {
-  appTitle: 'Marcador de tenis',
-  category: 'Partido de tenis',
-  players: ['Jugador 1', 'Jugador 2'],
-  warnings: [0, 0],
-  bestOf: 3,
-  finalSetMode: 'super',
-  games: [0, 0],
-  sets: [[], []],
-  points: [0, 0],
-  serverIndex: null,
-  tossWinnerIndex: null,
-  tossComplete: false,
-  tiebreakPointCount: 0,
-  history: [],
-  matchOver: false,
-  winnerIndex: null,
-  matchStartTime: null,
-  matchDuration: 0,
-  setPaused: false,
-  sideChangeNotice: '',
-  sideChangePaused: false
-};
+function createInitialState(overrides = {}) {
+  return {
+    appTitle: 'Escalerilla 2026',
+    category: 'Club de Tenis Illapel',
+    players: ['Jugador 1', 'Jugador 2'],
+    warnings: [0, 0],
+    bestOf: 3,
+    finalSetMode: 'super',
+    games: [0, 0],
+    sets: [[], []],
+    points: [0, 0],
+    serverIndex: null,
+    faultServerIndex: null,
+    tossWinnerIndex: null,
+    tossComplete: false,
+    tiebreakPointCount: 0,
+    history: [],
+    matchOver: false,
+    winnerIndex: null,
+    matchStartTime: null,
+    matchDuration: 0,
+    setPaused: false,
+    sideChangeNotice: '',
+    sideChangePaused: false,
+    ...overrides
+  };
+}
+
+const state = createInitialState();
 
 const pointLabels = ['0', '15', '30', '40'];
 const SUPER_TIEBREAK_TARGET = 10;
 const SET_TIEBREAK_TARGET = 7;
+const POINT_TYPE_LABELS = {
+  ace: 'Ace',
+  'double-fault': 'Doble falta',
+  winner: 'Winner',
+  'forced-error': 'Error forzado',
+  'unforced-error': 'Error no forzado',
+  fault: 'Fault',
+  warning: 'Warning'
+};
 let pendingPointPlayer = null;
 let timerInterval = null;
+let tossAnimationTimer = null;
+let tossCountdownTimer = null;
+const TOSS_DURATION = 2400;
 const elements = {
   scoreGrid: document.querySelector('#scoreGrid'),
   settingsButton: document.querySelector('#settingsButton'),
@@ -93,6 +111,11 @@ const elements = {
   ,tossWinnerName: document.querySelector('#tossWinnerName')
   ,chooseServeButton: document.querySelector('#chooseServeButton')
   ,chooseSideButton: document.querySelector('#chooseSideButton')
+  ,tossCoin: document.querySelector('#tossCoin')
+  ,tossCoinFront: document.querySelector('#tossCoinFront')
+  ,tossCoinBack: document.querySelector('#tossCoinBack')
+  ,tossStatus: document.querySelector('#tossStatus')
+  ,tossCountdown: document.querySelector('#tossCountdown')
 };
 
 function setsToWin() {
@@ -124,13 +147,43 @@ function currentPointScore() {
 function recordPoint(playerIndex, eventType = 'point') {
   if (state.matchOver || !state.tossComplete || state.setPaused || state.sideChangePaused) return;
   saveSnapshot(playerIndex, eventType);
+  state.faultServerIndex = null;
   state.sideChangeNotice = '';
   applyPoint(playerIndex);
   render();
 }
 
+function registerFault() {
+  if (state.matchOver || !state.tossComplete || state.setPaused || state.sideChangePaused || state.serverIndex === null) return;
+  if (state.faultServerIndex === state.serverIndex) {
+    recordPoint(1 - state.serverIndex, 'double-fault');
+    return;
+  }
+  saveSnapshot(null, 'fault');
+  state.faultServerIndex = state.serverIndex;
+  render();
+}
+
 function saveSnapshot(playerIndex = null, eventType = null, warningPlayer = null) {
-  state.history.push(JSON.stringify({ games: state.games, sets: state.sets, points: state.points, serverIndex: state.serverIndex, tossWinnerIndex: state.tossWinnerIndex, tossComplete: state.tossComplete, tiebreakPointCount: state.tiebreakPointCount, warnings: state.warnings, setPaused: state.setPaused, sideChangePaused: state.sideChangePaused, sideChangeNotice: state.sideChangeNotice, matchOver: state.matchOver, winnerIndex: state.winnerIndex, winner: playerIndex, eventType, warningPlayer }));
+  state.history.push({
+    games: [...state.games],
+    sets: state.sets.map((set) => [...set]),
+    points: [...state.points],
+    serverIndex: state.serverIndex,
+    faultServerIndex: state.faultServerIndex,
+    tossWinnerIndex: state.tossWinnerIndex,
+    tossComplete: state.tossComplete,
+    tiebreakPointCount: state.tiebreakPointCount,
+    warnings: [...state.warnings],
+    setPaused: state.setPaused,
+    sideChangePaused: state.sideChangePaused,
+    sideChangeNotice: state.sideChangeNotice,
+    matchOver: state.matchOver,
+    winnerIndex: state.winnerIndex,
+    winner: playerIndex,
+    eventType,
+    warningPlayer
+  });
 }
 
 function applyPoint(playerIndex) {
@@ -234,10 +287,35 @@ function exportMatchPdf() {
 function undo() {
   const previous = state.history.pop();
   if (!previous) return;
-  const restored = JSON.parse(previous);
-  Object.assign(state, restored);
-  state.warnings = restored.warnings || [0, 0];
-  state.sideChangePaused = restored.sideChangePaused || false;
+
+  Object.assign(state, createInitialState({
+    appTitle: state.appTitle,
+    category: state.category,
+    players: [...state.players],
+    bestOf: state.bestOf,
+    finalSetMode: state.finalSetMode
+  }));
+
+  Object.assign(state, {
+    games: [...(previous.games || [0, 0])],
+    sets: (previous.sets || [[], []]).map((set) => [...set]),
+    points: [...(previous.points || [0, 0])],
+    serverIndex: previous.serverIndex,
+    faultServerIndex: previous.faultServerIndex ?? null,
+    tossWinnerIndex: previous.tossWinnerIndex,
+    tossComplete: previous.tossComplete,
+    tiebreakPointCount: previous.tiebreakPointCount,
+    warnings: [...(previous.warnings || [0, 0])],
+    setPaused: previous.setPaused,
+    sideChangePaused: previous.sideChangePaused,
+    sideChangeNotice: previous.sideChangeNotice,
+    matchOver: previous.matchOver,
+    winnerIndex: previous.winnerIndex,
+    matchStartTime: null,
+    matchDuration: 0,
+    history: state.history
+  });
+
   if (state.setPaused || state.matchOver) stopMatchTimer();
   else if (state.tossComplete) startMatchTimer();
   render();
@@ -245,27 +323,26 @@ function undo() {
 
 function reset(openToss = true) {
   stopMatchTimer();
-  state.games = [0, 0];
-  state.sets = [[], []];
-  state.points = [0, 0];
-  state.serverIndex = null;
-  state.tossWinnerIndex = null;
-  state.tossComplete = false;
-  state.tiebreakPointCount = 0;
-  state.history = [];
-  state.matchOver = false;
-  state.winnerIndex = null;
-  state.matchStartTime = null;
-  state.matchDuration = 0;
-  state.setPaused = false;
-  state.sideChangeNotice = '';
-  state.sideChangePaused = false;
+  Object.assign(state, createInitialState({
+    appTitle: state.appTitle,
+    category: state.category,
+    players: [...state.players],
+    bestOf: state.bestOf,
+    finalSetMode: state.finalSetMode
+  }));
   render();
   if (openToss) prepareTossDialog();
 }
 
 function prepareTossDialog() {
+  clearTimeout(tossAnimationTimer);
+  clearInterval(tossCountdownTimer);
+  tossAnimationTimer = null;
+  tossCountdownTimer = null;
   elements.tossResult.hidden = true;
+  elements.tossStatus.hidden = true;
+  elements.tossCoin.classList.remove('is-tossing');
+  elements.tossCoin.style.removeProperty('--coin-end-rotation');
   elements.drawTossButton.disabled = false;
   if (!elements.tossDialog.open) elements.tossDialog.showModal();
 }
@@ -295,24 +372,33 @@ function matchStats() {
     pointsWon: 0,
     servePointsWon: 0,
     servePointsTotal: 0,
+    firstServeSuccessful: 0,
+    firstServeAttempts: 0,
     returnPointsWon: 0,
     returnPointsTotal: 0,
     warnings: 0
   }));
+
   state.history.forEach((snapshot) => {
-    const point = JSON.parse(snapshot);
-    if (point.eventType === 'warning') {
-      stats[point.warningPlayer].warnings += 1;
+    if (snapshot.eventType === 'warning') {
+      stats[snapshot.warningPlayer].warnings += 1;
     }
-    if (typeof point.winner !== 'number') return;
-    const winner = point.winner;
-    const server = point.serverIndex;
+
+    if (typeof snapshot.winner !== 'number') return;
+
+    const winner = snapshot.winner;
+    const server = snapshot.serverIndex;
+    if (server !== null && snapshot.faultServerIndex !== server) {
+      stats[server].firstServeAttempts += 1;
+      stats[server].firstServeSuccessful += 1;
+    }
     stats[winner].pointsWon += 1;
-    if (point.eventType === 'ace') stats[winner].aces += 1;
-    if (point.eventType === 'double-fault' && server !== null) stats[server].doubleFaults += 1;
-    if (point.eventType === 'winner') stats[winner].winners += 1;
-    if (point.eventType === 'forced-error') stats[1 - winner].forcedErrors += 1;
-    if (point.eventType === 'unforced-error') stats[1 - winner].unforcedErrors += 1;
+
+    if (snapshot.eventType === 'ace') stats[winner].aces += 1;
+    if (snapshot.eventType === 'double-fault' && server !== null) stats[server].doubleFaults += 1;
+    if (snapshot.eventType === 'winner') stats[winner].winners += 1;
+    if (snapshot.eventType === 'forced-error') stats[1 - winner].forcedErrors += 1;
+    if (snapshot.eventType === 'unforced-error') stats[1 - winner].unforcedErrors += 1;
     if (server === winner) stats[winner].servePointsWon += 1;
     if (server !== null && server !== winner) stats[winner].returnPointsWon += 1;
     if (server !== null) {
@@ -320,10 +406,16 @@ function matchStats() {
       stats[1 - server].returnPointsTotal += 1;
     }
   });
+
+  state.history.forEach((snapshot) => {
+    if (snapshot.eventType === 'fault' && snapshot.serverIndex !== null) stats[snapshot.serverIndex].firstServeAttempts += 1;
+  });
+
   return stats.map((playerStats, playerIndex) => ({
     ...playerStats,
     player: state.players[playerIndex],
     servePercentage: percentage(playerStats.servePointsWon, playerStats.servePointsTotal),
+    firstServePercentage: percentage(playerStats.firstServeSuccessful, playerStats.firstServeAttempts),
     returnPercentage: percentage(playerStats.returnPointsWon, playerStats.returnPointsTotal),
     winnerErrorBalance: playerStats.unforcedErrors === 0 ? (playerStats.winners ? 'N/A' : '0.00') : (playerStats.winners / playerStats.unforcedErrors).toFixed(2)
   }));
@@ -366,7 +458,8 @@ function render() {
   elements.scoreGrid.style.setProperty('--set-count', state.bestOf);
   document.querySelectorAll('.optional-set').forEach((element) => element.hidden = state.bestOf === 3);
   elements.pointContext.textContent = isFinalSuperTiebreak() ? 'Supertiebreak' : isSetTiebreak() ? 'Tiebreak' : `Juego ${state.games[0] + state.games[1] + 1}`;
-  elements.pointCount.textContent = `${state.history.length} ${state.history.length === 1 ? 'punto' : 'puntos'}`;
+  const recordedPointCount = state.history.filter((snapshot) => typeof snapshot.winner === 'number').length;
+  elements.pointCount.textContent = `${recordedPointCount} ${recordedPointCount === 1 ? 'punto' : 'puntos'}`;
   elements.undoButton.disabled = state.history.length === 0;
   const pointEntryDisabled = state.matchOver || !state.tossComplete || state.setPaused || state.sideChangePaused;
   elements.pointOneButton.disabled = pointEntryDisabled;
@@ -375,6 +468,8 @@ function render() {
   elements.aceAction.textContent = servingPlayer ? `Ace de ${servingPlayer} +` : 'Disponible al iniciar';
   elements.aceButton.disabled = pointEntryDisabled;
   elements.doubleFaultButton.disabled = pointEntryDisabled;
+  elements.doubleFaultButton.querySelector('.serve-label').textContent = state.faultServerIndex === null ? 'Fault' : 'Double fault';
+  elements.doubleFaultButton.querySelector('.serve-action').innerHTML = state.faultServerIndex === null ? 'Registrar falta <b>+</b>' : 'Punto para el rival <b>+</b>';
   elements.warningOneButton.disabled = pointEntryDisabled || state.warnings[0] >= 3;
   elements.warningTwoButton.disabled = pointEntryDisabled || state.warnings[1] >= 3;
   elements.nextSetButton.hidden = !state.setPaused || state.matchOver;
@@ -393,7 +488,6 @@ function render() {
 
 function renderStats() {
   const stats = matchStats();
-  elements.statsTableHead.innerHTML = `<tr><th scope="col">Indicador</th>${stats.map((playerStats) => `<th scope="col">${playerStats.player}</th>`).join('')}</tr>`;
   const sections = [
     ['Rendimiento de golpeo', [
       ['Aces', 'aces'],
@@ -405,6 +499,9 @@ function renderStats() {
     ]],
     ['Eficiencia de puntos', [
       ['Total de puntos ganados', 'pointsWon'],
+      ['Total de puntos ganados con el servicio', 'servePointsWon'],
+      ['Total de puntos ganados a la devolucion', 'returnPointsWon'],
+      ['Efectividad del primer servicio', 'firstServePercentage'],
       ['Puntos ganados con el servicio', 'servePercentage'],
       ['Puntos ganados a la devolucion', 'returnPercentage']
     ]],
@@ -412,9 +509,11 @@ function renderStats() {
       ['Warnings / Advertencias', 'warnings']
     ]]
   ];
+
+  elements.statsTableHead.innerHTML = `<tr><th scope="col">${stats[0].player}</th><th scope="col">Indicador</th><th scope="col">${stats[1].player}</th></tr>`;
   elements.statsTableBody.innerHTML = sections.flatMap(([section, rows]) => [
     `<tr class="stats-group"><th colspan="${stats.length + 1}">${section}</th></tr>`,
-    ...rows.map(([label, key]) => `<tr><th scope="row">${label}</th>${stats.map((playerStats) => `<td>${key === 'warnings' ? `${playerStats[key]}/3` : playerStats[key]}</td>`).join('')}</tr>`)
+    ...rows.map(([label, key]) => `<tr><td>${key === 'warnings' ? `${stats[0][key]}/3` : stats[0][key]}</td><th scope="row">${label}</th><td>${key === 'warnings' ? `${stats[1][key]}/3` : stats[1][key]}</td></tr>`)
   ]).join('');
 }
 
@@ -517,13 +616,12 @@ function renderHistory() {
     elements.historyList.innerHTML = '<li class="empty-history">Los puntos registrados apareceran aqui.</li>';
     return;
   }
+
   const recent = state.history.slice(-8).reverse();
   elements.historyList.innerHTML = recent.map((snapshot, index) => {
-    const before = JSON.parse(snapshot);
-    const winner = index === 0 ? 'Ultimo punto' : `Punto ${state.history.length - index}`;
-    const player = before.eventType === 'warning' ? state.players[before.warningPlayer] : state.players[before.winner];
-    const eventLabels = { ace: 'Ace', 'double-fault': 'Doble falta', winner: 'Winner', 'forced-error': 'Error forzado', 'unforced-error': 'Error no forzado', warning: 'Warning' };
-    const event = before.eventType ? ` (${eventLabels[before.eventType] || before.eventType})` : '';
+    const winner = snapshot.eventType === 'fault' ? 'Fault' : index === 0 ? 'Ultimo punto' : `Punto ${state.history.length - index}`;
+    const player = snapshot.eventType === 'warning' ? state.players[snapshot.warningPlayer] : snapshot.eventType === 'fault' ? state.players[snapshot.serverIndex] : state.players[snapshot.winner];
+    const event = snapshot.eventType ? ` (${POINT_TYPE_LABELS[snapshot.eventType] || snapshot.eventType})` : '';
     return `<li><span>${winner}${event}</span><span class="history-winner">${player}</span></li>`;
   }).join('');
 }
@@ -551,7 +649,7 @@ elements.aceButton.addEventListener('click', () => {
   if (state.serverIndex !== null) recordPoint(state.serverIndex, 'ace');
 });
 elements.doubleFaultButton.addEventListener('click', () => {
-  if (state.serverIndex !== null) recordPoint(1 - state.serverIndex, 'double-fault');
+  registerFault();
 });
 elements.warningOneButton.addEventListener('click', () => issueWarning(0));
 elements.warningTwoButton.addEventListener('click', () => issueWarning(1));
@@ -567,9 +665,26 @@ elements.cancelSettingsButton.addEventListener('click', () => elements.settingsD
 elements.closeSettingsButton.addEventListener('click', () => elements.settingsDialog.close());
 elements.drawTossButton.addEventListener('click', () => {
   state.tossWinnerIndex = Math.random() < 0.5 ? 0 : 1;
-  elements.tossWinnerName.textContent = state.players[state.tossWinnerIndex];
-  elements.tossResult.hidden = false;
   elements.drawTossButton.disabled = true;
+  elements.tossCoinFront.textContent = state.players[0];
+  elements.tossCoinBack.textContent = state.players[1];
+  elements.tossCoin.style.setProperty('--coin-end-rotation', `${state.tossWinnerIndex === 0 ? 1800 : 1980}deg`);
+  elements.tossCoin.classList.remove('is-tossing');
+  void elements.tossCoin.offsetWidth;
+  elements.tossCoin.classList.add('is-tossing');
+  elements.tossStatus.hidden = false;
+  elements.tossCountdown.textContent = '3';
+  tossCountdownTimer = setInterval(() => {
+    const countdown = Number(elements.tossCountdown.textContent);
+    if (countdown > 1) elements.tossCountdown.textContent = String(countdown - 1);
+  }, 800);
+  tossAnimationTimer = setTimeout(() => {
+    clearInterval(tossCountdownTimer);
+    tossCountdownTimer = null;
+    elements.tossStatus.hidden = true;
+    elements.tossWinnerName.textContent = state.players[state.tossWinnerIndex];
+    elements.tossResult.hidden = false;
+  }, TOSS_DURATION);
 });
 function completeToss(choice) {
   state.serverIndex = choice === 'serve' ? state.tossWinnerIndex : 1 - state.tossWinnerIndex;

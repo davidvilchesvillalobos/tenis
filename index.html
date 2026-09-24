@@ -16,7 +16,6 @@
       </div>
       <div class="top-actions">
         <button class="button button-outline settings-button" id="settingsButton" type="button" aria-label="Abrir configuración" title="Configuración"><span aria-hidden="true">⚙</span><span class="visually-hidden">Configuración</span></button>
-        <button class="button button-quiet" id="undoButton" type="button" disabled aria-label="Deshacer el ultimo punto">↶ <span>Deshacer</span></button>
         <button class="button button-outline" id="resetButton" type="button">Reiniciar</button>
       </div>
     </header>
@@ -71,7 +70,10 @@
           <p class="eyebrow">SIGUIENTE PUNTO</p>
           <h2>Quien gano el punto?</h2>
         </div>
-        <span class="point-context" id="pointContext">Juego 1</span>
+        <div class="point-panel-actions">
+          <span class="point-context" id="pointContext">Juego 1</span>
+          <button class="button button-quiet" id="undoButton" type="button" disabled aria-label="Deshacer el ultimo punto">↶ <span>Deshacer</span></button>
+        </div>
       </div>
       <div class="point-buttons">
         <button class="point-button point-one" id="pointOneButton" type="button">
@@ -89,8 +91,8 @@
           <span class="serve-action" id="aceAction">Saca el jugador que gana <b>+</b></span>
         </button>
         <button class="serve-button double-fault-button" id="doubleFaultButton" type="button">
-          <span class="serve-label">Doble falta</span>
-          <span class="serve-action">Punto para el rival <b>+</b></span>
+          <span class="serve-label">Fault</span>
+          <span class="serve-action">Registrar falta <b>+</b></span>
         </button>
       </div>
       <div class="warning-point-buttons">
@@ -177,6 +179,13 @@
       <p class="eyebrow">INICIO DEL PARTIDO</p>
       <h2>Sorteo inicial</h2>
       <p class="toss-description">El sorteo define quien decide entre sacar primero o elegir lado.</p>
+      <div class="toss-visual" aria-live="polite">
+        <div class="toss-coin" id="tossCoin" aria-hidden="true">
+          <div class="toss-coin-face toss-coin-front" id="tossCoinFront">Jugador 1</div>
+          <div class="toss-coin-face toss-coin-back" id="tossCoinBack">Jugador 2</div>
+        </div>
+        <p class="toss-status" id="tossStatus" hidden>Sorteando... <span id="tossCountdown">3</span></p>
+      </div>
       <button class="button button-primary toss-draw" id="drawTossButton" type="button">Realizar sorteo</button>
       <div class="toss-result" id="tossResult" hidden>
         <p class="toss-winner-label">Gana el sorteo</p>
