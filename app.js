@@ -3,6 +3,7 @@ function createInitialState(overrides = {}) {
     appTitle: 'Escalerilla 2026',
     category: 'Club de Tenis Illapel',
     players: ['Jugador 1', 'Jugador 2'],
+    playerPhotos: [null, null],
     warnings: [0, 0],
     bestOf: 3,
     finalSetMode: 'super',
@@ -27,6 +28,7 @@ function createInitialState(overrides = {}) {
 }
 
 const state = createInitialState();
+let showingSetStats = false;
 
 const pointLabels = ['0', '15', '30', '40'];
 const SUPER_TIEBREAK_TARGET = 10;
@@ -56,6 +58,12 @@ const elements = {
   categoryInput: document.querySelector('#categoryInput'),
   playerOneInput: document.querySelector('#playerOneInput'),
   playerTwoInput: document.querySelector('#playerTwoInput'),
+  playerOnePhotoInput: document.querySelector('#playerOnePhotoInput'),
+  playerTwoPhotoInput: document.querySelector('#playerTwoPhotoInput'),
+  playerOnePhotoPreview: document.querySelector('#playerOnePhotoPreview'),
+  playerTwoPhotoPreview: document.querySelector('#playerTwoPhotoPreview'),
+  removePlayerOnePhotoButton: document.querySelector('#removePlayerOnePhotoButton'),
+  removePlayerTwoPhotoButton: document.querySelector('#removePlayerTwoPhotoButton'),
   cancelSettingsButton: document.querySelector('#cancelSettingsButton'),
   closeSettingsButton: document.querySelector('#closeSettingsButton'),
   playerOneLabel: document.querySelector('#playerOneLabel'),
@@ -87,6 +95,9 @@ const elements = {
   pointCount: document.querySelector('#pointCount'),
   statsTableHead: document.querySelector('#statsTableHead'),
   statsTableBody: document.querySelector('#statsTableBody'),
+  statsViewButton: document.querySelector('#statsViewButton'),
+  matchStatsTable: document.querySelector('#matchStatsTable'),
+  setStatsTables: document.querySelector('#setStatsTables'),
   pointTypeDialog: document.querySelector('#pointTypeDialog'),
   pointTypeTitle: document.querySelector('#pointTypeTitle'),
   pointTypeButtons: document.querySelectorAll('[data-point-type]'),
@@ -105,6 +116,8 @@ const elements = {
   winnerSummary: document.querySelector('#winnerSummary')
   ,playerOneRow: document.querySelector('#playerOneRow')
   ,playerTwoRow: document.querySelector('#playerTwoRow')
+  ,playerOnePhoto: document.querySelector('#playerOneRow .player-photo-placeholder')
+  ,playerTwoPhoto: document.querySelector('#playerTwoRow .player-photo-placeholder')
   ,tossDialog: document.querySelector('#tossDialog')
   ,drawTossButton: document.querySelector('#drawTossButton')
   ,tossResult: document.querySelector('#tossResult')
@@ -216,6 +229,11 @@ function issueWarning(playerIndex) {
 }
 
 function winGame(playerIndex) {
+  const gameSnapshot = state.history[state.history.length - 1];
+  if (gameSnapshot) {
+    gameSnapshot.gameWinner = playerIndex;
+    gameSnapshot.gameServerIndex = state.serverIndex;
+  }
   state.games[playerIndex] += 1;
   if ((state.games[0] + state.games[1]) % 2 === 1) state.sideChangeNotice = 'Cambio de lado: se completaron un numero impar de juegos.';
   state.points = [0, 0];
@@ -292,6 +310,7 @@ function undo() {
     appTitle: state.appTitle,
     category: state.category,
     players: [...state.players],
+    playerPhotos: [...state.playerPhotos],
     bestOf: state.bestOf,
     finalSetMode: state.finalSetMode
   }));
@@ -327,6 +346,7 @@ function reset(openToss = true) {
     appTitle: state.appTitle,
     category: state.category,
     players: [...state.players],
+    playerPhotos: [...state.playerPhotos],
     bestOf: state.bestOf,
     finalSetMode: state.finalSetMode
   }));
@@ -348,6 +368,18 @@ function prepareTossDialog() {
 }
 
 function prepareSettingsDialog() {
+  [
+    [elements.playerOnePhotoInput, elements.playerOnePhotoPreview, elements.removePlayerOnePhotoButton, state.playerPhotos[0]],
+    [elements.playerTwoPhotoInput, elements.playerTwoPhotoPreview, elements.removePlayerTwoPhotoButton, state.playerPhotos[1]]
+  ].forEach(([input, preview, removeButton, photo]) => {
+    if (input.dataset.previewUrl) URL.revokeObjectURL(input.dataset.previewUrl);
+    input.dataset.previewUrl = '';
+    input.dataset.removePhoto = 'false';
+    input.value = '';
+    preview.src = photo || '';
+    preview.hidden = !photo;
+    removeButton.disabled = !photo;
+  });
   elements.appTitleInput.value = state.appTitle;
   elements.categoryInput.value = state.category;
   elements.playerOneInput.value = state.players[0];
@@ -362,7 +394,7 @@ function setScoreText(playerIndex, setIndex) {
   return state.sets[playerIndex][setIndex] ?? (setIndex === state.sets[playerIndex].length ? state.games[playerIndex] : '-');
 }
 
-function matchStats() {
+function matchStats(history = state.history) {
   const stats = state.players.map(() => ({
     aces: 0,
     doubleFaults: 0,
@@ -376,10 +408,22 @@ function matchStats() {
     firstServeAttempts: 0,
     returnPointsWon: 0,
     returnPointsTotal: 0,
+    serviceGamesPlayed: 0,
+    serviceGamesWon: 0,
+    returnGamesPlayed: 0,
+    returnGamesWon: 0,
     warnings: 0
   }));
 
-  state.history.forEach((snapshot) => {
+  history.forEach((snapshot) => {
+    if (typeof snapshot.gameWinner === 'number' && snapshot.gameServerIndex !== null) {
+      const server = snapshot.gameServerIndex;
+      stats[server].serviceGamesPlayed += 1;
+      stats[1 - server].returnGamesPlayed += 1;
+      if (snapshot.gameWinner === server) stats[server].serviceGamesWon += 1;
+      else stats[snapshot.gameWinner].returnGamesWon += 1;
+    }
+
     if (snapshot.eventType === 'warning') {
       stats[snapshot.warningPlayer].warnings += 1;
     }
@@ -407,7 +451,7 @@ function matchStats() {
     }
   });
 
-  state.history.forEach((snapshot) => {
+  history.forEach((snapshot) => {
     if (snapshot.eventType === 'fault' && snapshot.serverIndex !== null) stats[snapshot.serverIndex].firstServeAttempts += 1;
   });
 
@@ -417,12 +461,40 @@ function matchStats() {
     servePercentage: percentage(playerStats.servePointsWon, playerStats.servePointsTotal),
     firstServePercentage: percentage(playerStats.firstServeSuccessful, playerStats.firstServeAttempts),
     returnPercentage: percentage(playerStats.returnPointsWon, playerStats.returnPointsTotal),
+    serviceGameRecord: `${playerStats.serviceGamesWon}/${playerStats.serviceGamesPlayed} (${percentage(playerStats.serviceGamesWon, playerStats.serviceGamesPlayed)})`,
+    breakRecord: `${playerStats.returnGamesWon}/${playerStats.returnGamesPlayed} (${percentage(playerStats.returnGamesWon, playerStats.returnGamesPlayed)})`,
     winnerErrorBalance: playerStats.unforcedErrors === 0 ? (playerStats.winners ? 'N/A' : '0.00') : (playerStats.winners / playerStats.unforcedErrors).toFixed(2)
   }));
 }
 
 function percentage(value, total) {
   return total === 0 ? '0.0%' : `${((value / total) * 100).toFixed(1)}%`;
+}
+
+function loadPlayerPhoto(file) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const imageUrl = URL.createObjectURL(file);
+    image.onload = () => {
+      URL.revokeObjectURL(imageUrl);
+      const scale = Math.min(1, 512 / Math.max(image.naturalWidth, image.naturalHeight));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(image.naturalWidth * scale);
+      canvas.height = Math.round(image.naturalHeight * scale);
+      const context = canvas.getContext('2d');
+      if (!context) {
+        reject(new Error('No se pudo procesar la imagen.'));
+        return;
+      }
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', 0.82));
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(imageUrl);
+      reject(new Error('No se pudo abrir la imagen.'));
+    };
+    image.src = imageUrl;
+  });
 }
 
 function render() {
@@ -436,6 +508,13 @@ function render() {
   document.title = state.appTitle;
   elements.playerOneLabel.textContent = state.players[0];
   elements.playerTwoLabel.textContent = state.players[1];
+  [
+    [elements.playerOnePhoto, state.playerPhotos[0]],
+    [elements.playerTwoPhoto, state.playerPhotos[1]]
+  ].forEach(([photoElement, photo]) => {
+    photoElement.classList.toggle('has-photo', Boolean(photo));
+    photoElement.style.backgroundImage = photo ? `url("${photo}")` : '';
+  });
   elements.pointOneButton.querySelector('.point-label').textContent = state.players[0];
   elements.pointTwoButton.querySelector('.point-label').textContent = state.players[1];
   renderStats();
@@ -505,13 +584,34 @@ function renderStats() {
       ['Puntos ganados con el servicio', 'servePercentage'],
       ['Puntos ganados a la devolucion', 'returnPercentage']
     ]],
+    ['Eficiencia de juegos', [
+      ['Juegos de servicio ganados (holds)', 'serviceGameRecord'],
+      ['Quiebres de servicio', 'breakRecord']
+    ]],
     ['Disciplina y reglas', [
       ['Warnings / Advertencias', 'warnings']
     ]]
   ];
 
-  elements.statsTableHead.innerHTML = `<tr><th scope="col">${stats[0].player}</th><th scope="col">Indicador</th><th scope="col">${stats[1].player}</th></tr>`;
-  elements.statsTableBody.innerHTML = sections.flatMap(([section, rows]) => [
+  renderStatsTable(stats, sections, elements.statsTableHead, elements.statsTableBody);
+
+  const setCount = Math.min(state.bestOf, Math.max(1, state.sets[0].length, state.sets[1].length, ...state.history.map((snapshot) => (snapshot.sets?.[0]?.length ?? 0) + 1)));
+  elements.setStatsTables.innerHTML = Array.from({ length: setCount }, (_, setIndex) => {
+    return `<div class="set-stats"><h3>Set ${setIndex + 1}</h3><div class="stats-table-wrapper"><table class="stats-table"><thead></thead><tbody></tbody></table></div></div>`;
+  }).join('');
+  elements.setStatsTables.querySelectorAll('.stats-table').forEach((table, setIndex) => {
+    const setHistory = state.history.filter((snapshot) => (snapshot.sets?.[0]?.length ?? 0) === setIndex);
+    renderStatsTable(matchStats(setHistory), sections, table.tHead, table.tBodies[0]);
+  });
+  elements.matchStatsTable.hidden = showingSetStats;
+  elements.setStatsTables.hidden = !showingSetStats;
+  elements.statsViewButton.setAttribute('aria-pressed', String(showingSetStats));
+  elements.statsViewButton.textContent = showingSetStats ? 'Ver estadisticas del partido' : 'Ver estadisticas por set';
+}
+
+function renderStatsTable(stats, sections, tableHead, tableBody) {
+  tableHead.innerHTML = `<tr><th scope="col">${stats[0].player}</th><th scope="col">Indicador</th><th scope="col">${stats[1].player}</th></tr>`;
+  tableBody.innerHTML = sections.flatMap(([section, rows]) => [
     `<tr class="stats-group"><th colspan="${stats.length + 1}">${section}</th></tr>`,
     ...rows.map(([label, key]) => `<tr><td>${key === 'warnings' ? `${stats[0][key]}/3` : stats[0][key]}</td><th scope="row">${label}</th><td>${key === 'warnings' ? `${stats[1][key]}/3` : stats[1][key]}</td></tr>`)
   ]).join('');
@@ -656,6 +756,10 @@ elements.warningTwoButton.addEventListener('click', () => issueWarning(1));
 elements.nextSetButton.addEventListener('click', startNextSet);
 elements.resumeGameButton.addEventListener('click', resumeAfterSideChange);
 elements.undoButton.addEventListener('click', undo);
+elements.statsViewButton.addEventListener('click', () => {
+  showingSetStats = !showingSetStats;
+  renderStats();
+});
 elements.resetButton.addEventListener('click', () => {
   reset(false);
   prepareSettingsDialog();
@@ -663,6 +767,28 @@ elements.resetButton.addEventListener('click', () => {
 elements.settingsButton.addEventListener('click', prepareSettingsDialog);
 elements.cancelSettingsButton.addEventListener('click', () => elements.settingsDialog.close());
 elements.closeSettingsButton.addEventListener('click', () => elements.settingsDialog.close());
+[
+  [elements.playerOnePhotoInput, elements.playerOnePhotoPreview, elements.removePlayerOnePhotoButton],
+  [elements.playerTwoPhotoInput, elements.playerTwoPhotoPreview, elements.removePlayerTwoPhotoButton]
+].forEach(([input, preview, removeButton]) => {
+  input.addEventListener('change', () => {
+    const file = input.files[0];
+    if (!file) return;
+    if (input.dataset.previewUrl) URL.revokeObjectURL(input.dataset.previewUrl);
+    input.dataset.previewUrl = URL.createObjectURL(file);
+    input.dataset.removePhoto = 'false';
+    preview.src = input.dataset.previewUrl;
+    preview.hidden = false;
+    removeButton.disabled = false;
+  });
+  removeButton.addEventListener('click', () => {
+    input.value = '';
+    input.dataset.removePhoto = 'true';
+    preview.removeAttribute('src');
+    preview.hidden = true;
+    removeButton.disabled = true;
+  });
+});
 elements.drawTossButton.addEventListener('click', () => {
   state.tossWinnerIndex = Math.random() < 0.5 ? 0 : 1;
   elements.drawTossButton.disabled = true;
@@ -695,8 +821,20 @@ function completeToss(choice) {
 }
 elements.chooseServeButton.addEventListener('click', () => completeToss('serve'));
 elements.chooseSideButton.addEventListener('click', () => completeToss('side'));
-elements.settingsForm.addEventListener('submit', (event) => {
+elements.settingsForm.addEventListener('submit', async (event) => {
   event.preventDefault();
+  try {
+    state.playerPhotos = await Promise.all([
+      [elements.playerOnePhotoInput, 0],
+      [elements.playerTwoPhotoInput, 1]
+    ].map(async ([input, playerIndex]) => {
+      if (input.dataset.removePhoto === 'true') return null;
+      return input.files[0] ? loadPlayerPhoto(input.files[0]) : state.playerPhotos[playerIndex];
+    }));
+  } catch {
+    window.alert('No se pudo cargar una de las fotos. Prueba con otra imagen.');
+    return;
+  }
   state.appTitle = elements.appTitleInput.value.trim() || 'Marcador de tenis';
   state.category = elements.categoryInput.value.trim() || 'Partido de tenis';
   state.players = [elements.playerOneInput.value.trim() || 'Jugador 1', elements.playerTwoInput.value.trim() || 'Jugador 2'];

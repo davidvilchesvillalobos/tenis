@@ -7,6 +7,7 @@ Aplicacion web sencilla para llevar el marcador de un partido de tenis.
 Abre `index.html` directamente en el navegador. No requiere instalacion ni servidor.
 
 - Abre `Configuracion` para editar los nombres de ambos jugadores.
+- En la configuracion puedes agregar una foto a cada jugador; en smartphones, el selector solicita abrir la camara trasera.
 - Al abrir la aplicacion o pulsar `Reiniciar`, la configuracion aparece antes de iniciar el partido.
 - Define el nombre del marcador y la categoria del partido; ambos se muestran en la cabecera.
 - Al iniciar, realiza el sorteo: quien gana elige sacar primero o elegir lado.

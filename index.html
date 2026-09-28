@@ -110,13 +110,15 @@
           <p class="eyebrow">ANALISIS</p>
           <h2>Estadisticas del partido</h2>
         </div>
+        <button class="button button-outline" id="statsViewButton" type="button" aria-pressed="false">Ver estadisticas por set</button>
       </div>
-      <div class="stats-table-wrapper">
+      <div class="stats-table-wrapper" id="matchStatsTable">
         <table class="stats-table">
           <thead id="statsTableHead"></thead>
           <tbody id="statsTableBody"></tbody>
         </table>
       </div>
+      <div id="setStatsTables" hidden></div>
     </section>
 
     <section class="history-section">
@@ -145,6 +147,27 @@
       <label>Categoria del partido <input id="categoryInput" maxlength="40" placeholder="Ej.: Open CDT - Adultos" required></label>
       <label>Jugador 1 <input id="playerOneInput" maxlength="24" required></label>
       <label>Jugador 2 <input id="playerTwoInput" maxlength="24" required></label>
+      <fieldset class="player-photo-settings">
+        <legend>Fotos de los jugadores</legend>
+        <div class="player-photo-entry">
+          <label class="player-photo-picker" for="playerOnePhotoInput">
+            <img class="player-photo-preview" id="playerOnePhotoPreview" alt="" hidden>
+            <span class="player-photo-preview-placeholder" aria-hidden="true"></span>
+            <span class="player-photo-picker-text"><strong>Jugador 1</strong><span>Elegir foto o abrir cámara</span></span>
+            <input class="visually-hidden" id="playerOnePhotoInput" type="file" accept="image/*" capture="environment">
+          </label>
+          <button class="player-photo-remove" id="removePlayerOnePhotoButton" type="button" aria-label="Quitar foto de Jugador 1" title="Quitar foto" disabled>&times;</button>
+        </div>
+        <div class="player-photo-entry">
+          <label class="player-photo-picker" for="playerTwoPhotoInput">
+            <img class="player-photo-preview" id="playerTwoPhotoPreview" alt="" hidden>
+            <span class="player-photo-preview-placeholder" aria-hidden="true"></span>
+            <span class="player-photo-picker-text"><strong>Jugador 2</strong><span>Elegir foto o abrir cámara</span></span>
+            <input class="visually-hidden" id="playerTwoPhotoInput" type="file" accept="image/*" capture="environment">
+          </label>
+          <button class="player-photo-remove" id="removePlayerTwoPhotoButton" type="button" aria-label="Quitar foto de Jugador 2" title="Quitar foto" disabled>&times;</button>
+        </div>
+      </fieldset>
       <fieldset>
         <legend>Modalidad del partido</legend>
         <label class="choice"><input type="radio" name="matchFormat" value="3" checked> 3 sets <span>Gana quien consiga 2</span></label>
