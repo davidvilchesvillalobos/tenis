@@ -15,15 +15,18 @@
         <p class="match-category" id="matchCategory">Partido de tenis</p>
       </div>
       <div class="top-actions">
-        <button class="button button-outline settings-button" id="settingsButton" type="button" aria-label="Abrir configuración" title="Configuración"><span aria-hidden="true">⚙</span><span class="visually-hidden">Configuración</span></button>
+        <div class="top-actions-primary">
+          <button class="button button-primary winner-download-button" id="downloadResultButton" type="button" hidden>Descargar resultado</button>
+          <button class="button button-outline settings-button" id="settingsButton" type="button" aria-label="Abrir configuración" title="Configuración"><span aria-hidden="true">⚙</span><span class="visually-hidden">Configuración</span></button>
+        </div>
         <button class="button button-outline" id="resetButton" type="button">Reiniciar</button>
       </div>
     </header>
 
     <section class="match-card" aria-label="Marcador actual">
       <div class="score-header">
-        <span>Partido en curso</span>
-        <span class="score-header-status"><span class="match-timer" id="matchTimer">00:00:00</span><span class="status-dot"><i></i> En vivo</span></span>
+        <span id="scoreHeaderLabel">Partido en curso</span>
+        <span class="score-header-status"><span class="match-timer" id="matchTimer">00:00:00</span><span class="status-dot" id="matchStatus"><i></i><span id="matchStatusLabel">En vivo</span></span></span>
       </div>
       <div class="score-grid" id="scoreGrid">
         <div class="player-cell player-label">
@@ -55,13 +58,21 @@
       <div class="point-alert" id="pointAlert" role="status" aria-live="polite" hidden></div>
       <div class="side-change-alert" id="sideChangeAlert" role="status" aria-live="polite" hidden></div>
       <p class="match-note" id="matchNote">Primer jugador en ganar 6 juegos con 2 de ventaja gana el set.</p>
-    </section>
-
-    <section class="winner-panel" id="winnerPanel" hidden aria-label="Resultado final">
-      <div class="winner-tab">RESULTADO FINAL</div>
-      <p class="eyebrow">GANADOR DEL PARTIDO</p>
-      <h2 id="winnerName">-</h2>
-      <p id="winnerSummary">-</p>
+      <section class="winner-panel" id="winnerPanel" hidden aria-label="Resultado final">
+        <div class="final-result-heading">
+          <strong>RESULTADO FINAL</strong>
+          <span class="final-duration"><span>Duración del partido</span><time id="finalMatchDuration">00:00:00</time></span>
+        </div>
+        <div class="winner-identity">
+          <img class="winner-photo" id="winnerPhoto" alt="" hidden>
+          <span class="winner-photo-fallback" id="winnerPhotoFallback" aria-hidden="true"></span>
+          <div class="winner-copy">
+            <p class="eyebrow">GANADOR DEL PARTIDO</p>
+            <h2 id="winnerName">-</h2>
+            <p id="winnerSummary">-</p>
+          </div>
+        </div>
+      </section>
     </section>
 
     <section class="point-panel" aria-label="Registrar punto">

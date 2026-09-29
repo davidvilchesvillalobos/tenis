@@ -48,6 +48,8 @@ let tossAnimationTimer = null;
 let tossCountdownTimer = null;
 const TOSS_DURATION = 2400;
 const elements = {
+  appShell: document.querySelector('.app-shell'),
+  matchCard: document.querySelector('.match-card'),
   scoreGrid: document.querySelector('#scoreGrid'),
   settingsButton: document.querySelector('#settingsButton'),
   settingsDialog: document.querySelector('#settingsDialog'),
@@ -107,13 +109,15 @@ const elements = {
   pointAlert: document.querySelector('#pointAlert'),
   sideChangeAlert: document.querySelector('#sideChangeAlert'),
   matchTimer: document.querySelector('#matchTimer'),
+  finalMatchDuration: document.querySelector('#finalMatchDuration'),
   nextSetButton: document.querySelector('#nextSetButton'),
   resumeGameButton: document.querySelector('#resumeGameButton'),
   undoButton: document.querySelector('#undoButton'),
   resetButton: document.querySelector('#resetButton'),
   winnerPanel: document.querySelector('#winnerPanel'),
   winnerName: document.querySelector('#winnerName'),
-  winnerSummary: document.querySelector('#winnerSummary')
+  winnerSummary: document.querySelector('#winnerSummary'),
+  downloadResultButton: document.querySelector('#downloadResultButton')
   ,playerOneRow: document.querySelector('#playerOneRow')
   ,playerTwoRow: document.querySelector('#playerTwoRow')
   ,playerOnePhoto: document.querySelector('#playerOneRow .player-photo-placeholder')
@@ -122,6 +126,10 @@ const elements = {
   ,drawTossButton: document.querySelector('#drawTossButton')
   ,tossResult: document.querySelector('#tossResult')
   ,tossWinnerName: document.querySelector('#tossWinnerName')
+  ,scoreHeaderLabel: document.querySelector('#scoreHeaderLabel')
+  ,matchStatusLabel: document.querySelector('#matchStatusLabel')
+  ,winnerPhoto: document.querySelector('#winnerPhoto')
+  ,winnerPhotoFallback: document.querySelector('#winnerPhotoFallback')
   ,chooseServeButton: document.querySelector('#chooseServeButton')
   ,chooseSideButton: document.querySelector('#chooseSideButton')
   ,tossCoin: document.querySelector('#tossCoin')
@@ -294,7 +302,6 @@ function finishMatch(playerIndex, message) {
   state.sideChangePaused = false;
   state.winnerIndex = playerIndex;
   elements.matchNote.textContent = message;
-  setTimeout(exportMatchPdf, 300);
 }
 
 function exportMatchPdf() {
@@ -502,6 +509,9 @@ function render() {
   elements.appTitle.textContent = state.appTitle;
   elements.matchCategory.textContent = state.category;
   elements.matchTimer.textContent = formatDuration(state.matchDuration);
+  elements.finalMatchDuration.textContent = formatDuration(state.matchDuration);
+  elements.scoreHeaderLabel.textContent = state.matchOver ? 'Marcador final' : 'Partido en curso';
+  elements.matchStatusLabel.textContent = state.matchOver ? 'Finalizado' : 'En vivo';
   renderPointAlert();
   elements.sideChangeAlert.textContent = state.sideChangeNotice;
   elements.sideChangeAlert.hidden = !state.sideChangeNotice;
@@ -535,6 +545,9 @@ function render() {
   elements.twoSetFour.textContent = setScoreText(1, 3);
   elements.twoSetFive.textContent = setScoreText(1, 4);
   elements.scoreGrid.style.setProperty('--set-count', state.bestOf);
+  elements.scoreGrid.classList.toggle('match-complete', state.matchOver);
+  elements.appShell.classList.toggle('match-over', state.matchOver);
+  elements.matchCard.classList.toggle('match-over', state.matchOver);
   document.querySelectorAll('.optional-set').forEach((element) => element.hidden = state.bestOf === 3);
   elements.pointContext.textContent = isFinalSuperTiebreak() ? 'Supertiebreak' : isSetTiebreak() ? 'Tiebreak' : `Juego ${state.games[0] + state.games[1] + 1}`;
   const recordedPointCount = state.history.filter((snapshot) => typeof snapshot.winner === 'number').length;
@@ -557,9 +570,15 @@ function render() {
   elements.playerOneRow.classList.toggle('serving-player', state.serverIndex === 0);
   elements.playerTwoRow.classList.toggle('serving-player', state.serverIndex === 1);
   elements.winnerPanel.hidden = !state.matchOver;
+  elements.downloadResultButton.hidden = !state.matchOver;
   if (state.matchOver) {
     elements.winnerName.textContent = state.players[state.winnerIndex];
-    elements.winnerSummary.textContent = `Victoria para ${state.players[state.winnerIndex]}.`;
+    const finalSetScores = state.sets[0].map((score, setIndex) => `${score}-${state.sets[1][setIndex]}`).join(' · ');
+    elements.winnerSummary.textContent = finalSetScores ? `Marcador final: ${finalSetScores}` : 'Partido finalizado';
+    const winningPhoto = state.playerPhotos[state.winnerIndex];
+    elements.winnerPhoto.src = winningPhoto || '';
+    elements.winnerPhoto.hidden = !winningPhoto;
+    elements.winnerPhotoFallback.hidden = Boolean(winningPhoto);
   }
   if (!state.matchOver) elements.matchNote.textContent = state.setPaused ? 'Set terminado. Pulsa iniciar para comenzar el siguiente set.' : isFinalSuperTiebreak() ? 'Set decisivo: primero en llegar a 10 puntos con 2 de ventaja gana.' : isSetTiebreak() ? 'Tiebreak: primero en llegar a 7 puntos con 2 de ventaja gana el set.' : 'Primer jugador en ganar 6 juegos con 2 de ventaja gana el set.';
   renderHistory();
@@ -765,6 +784,7 @@ elements.resetButton.addEventListener('click', () => {
   prepareSettingsDialog();
 });
 elements.settingsButton.addEventListener('click', prepareSettingsDialog);
+elements.downloadResultButton.addEventListener('click', exportMatchPdf);
 elements.cancelSettingsButton.addEventListener('click', () => elements.settingsDialog.close());
 elements.closeSettingsButton.addEventListener('click', () => elements.settingsDialog.close());
 [
