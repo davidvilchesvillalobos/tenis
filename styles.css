@@ -219,6 +219,7 @@ legend { margin-bottom: 5px; color: var(--muted); font-size: 12px; font-weight: 
   .app-shell { width: min(100% - 24px, 520px); padding-top: 25px; }
   .topbar { align-items: flex-start; }
   .top-actions { flex-direction: column-reverse; gap: 3px; }
+  .settings-dialog::backdrop { -webkit-backdrop-filter: none; backdrop-filter: none; }
   .button { padding: 8px 10px; }
   .button-quiet span { display: none; }
   .score-grid { grid-template-columns: minmax(130px, 1fr) repeat(var(--set-count, 3), minmax(43px, 1fr)) minmax(50px, 1fr); grid-template-rows: 48px repeat(2, 76px); }
@@ -230,6 +231,12 @@ legend { margin-bottom: 5px; color: var(--muted); font-size: 12px; font-weight: 
   .match-card.match-over .winner-photo-fallback::before { top: 16px; left: 32px; width: 26px; height: 26px; }
   .match-card.match-over .winner-photo-fallback::after { right: 13px; bottom: 9px; left: 13px; height: 31px; border-radius: 31px 31px 0 0; }
   .match-card.match-over .score-grid { grid-column: 1; grid-row: 3; }
+  .match-card.match-over .score-grid { grid-template-columns: minmax(0, 1.8fr) repeat(var(--set-count, 3), minmax(0, 1fr)) minmax(0, 1fr); }
+  .match-card.match-over .player-cell { gap: 0; padding: 0 6px; }
+  .match-card.match-over .player-cell strong { max-width: 100%; font-size: 12px; }
+  .match-card.match-over .set-heading { font-size: 8px; }
+  .match-card.match-over .set-score, .match-card.match-over .game-score { font-size: 16px; }
+  .match-card.match-over .winner-panel h2 { font-size: 24px; overflow-wrap: anywhere; }
   .player-label, .player-cell { padding: 0 10px; }
   .player-name { width: 92px; }
   .serve-indicator { display: none; }
@@ -239,12 +246,22 @@ legend { margin-bottom: 5px; color: var(--muted); font-size: 12px; font-weight: 
   .set-score, .game-score { font-size: 19px; }
   .current-score { font-size: 25px; }
   .point-panel, .stats-section, .history-section { padding: 20px 16px; }
+  .stats-table { min-width: 0; table-layout: fixed; font-size: 11px; }
+  .stats-table th, .stats-table td { padding: 8px 4px; overflow-wrap: anywhere; }
+  .stats-table th:first-child, .stats-table td:first-child,
+  .stats-table th:last-child, .stats-table td:last-child { width: 22%; }
+  .stats-table th:nth-child(2), .stats-table td:nth-child(2) { width: 56%; }
   .serve-buttons { grid-template-columns: 1fr; }
   .warning-point-buttons { grid-template-columns: 1fr; }
   .section-heading { align-items: flex-start; flex-direction: column; }
   .player-photo-placeholder { width: 40px; height: 40px; flex-basis: 40px; }
   .player-photo-placeholder::before { top: 7px; left: 12px; width: 12px; height: 12px; }
   .player-photo-placeholder::after { right: 7px; bottom: 6px; left: 7px; height: 15px; }
+}
+@media (max-width: 350px) {
+  .topbar { flex-wrap: wrap; }
+  .topbar > div:first-child { min-width: 0; flex: 1 1 100%; }
+  .top-actions { flex-direction: row; align-self: flex-end; }
 }
 
 @page { size: letter portrait; margin: 8mm; }
@@ -254,8 +271,11 @@ legend { margin-bottom: 5px; color: var(--muted); font-size: 12px; font-weight: 
   .top-actions, .point-panel, .history-section, dialog, .winner-download-button { display: none !important; }
   .topbar { flex: 0 0 auto; margin: 0; }
   .match-card { flex: 0 0 auto; break-inside: avoid; }
+  .match-card.match-over .score-grid { grid-template-rows: 36px repeat(2, 58px); }
   .stats-section { display: flex; min-height: 0; flex: 1 1 auto; flex-direction: column; margin: 0; break-inside: avoid; }
   .stats-table-wrapper { min-height: 0; flex: 1 1 auto; overflow: visible; }
   .stats-table { width: 100%; height: 100%; min-width: 0; }
+  .stats-table th, .stats-table td { padding-top: 4px; padding-bottom: 4px; }
+  .stats-table .stats-group th { padding-top: 8px; }
   .stats-section .section-heading .button { display: none !important; }
 }
